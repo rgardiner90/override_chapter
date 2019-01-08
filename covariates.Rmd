@@ -92,3 +92,49 @@ full_ideology <- rbind(ideology, ideology_1995, ideology_1997, ideology_1999, id
 full_ideology
 ```
 
+
+## Working on Superseded datasets
+
+```{r}
+library(readxl)
+
+short_1995 <- read_excel("data/1995 short.xlsx") # 1995 is already in long format
+short_1996 <- read_excel("data/1996 short.xlsx")
+short_1997 <- read_excel("data/1997 short.xlsx")
+short_1998 <- read_excel("data/1998 short.xlsx")
+
+colnames(short_1995)
+colnames(short_1996)
+colnames(short_1997)
+colnames(short_1998)
+
+# Getting rid of state code
+short_1995 <- short_1995 %>%
+  select(-state_code, -notes)
+
+short_1996 <- short_1996 %>%
+  select(-docket_n, -decs_day, -agency_r)
+
+short_1997 <- short_1997 %>%
+  select(-decs_day, -agency_r)
+
+short_1998 <- short_1998 %>%
+  select(-decs_day, -agency_r)
+```
+
+1995 is already in long format.  Agency will not be included with 1995 data, amicus won't be with 1997 data.
+
+
+```{r}
+long_1997 <- read_excel("data/old data/1997.xlsx")
+
+long_1997$am
+X1996$cla
+colnames(X1996)
+```
+
+-Double check that the column differences are just naming conventions and not real differences.  
+- rename columns 
+- assign election type 1996-1998
+- Merge the 4 years
+- Merge covariates

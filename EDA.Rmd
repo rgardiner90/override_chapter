@@ -1,0 +1,122 @@
+---
+title: "EDA"
+author: "Richard G. Gardiner"
+date: "1/16/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Data and Packages
+
+```{r}
+library(tidyverse)
+library(usmap)
+library(maps)
+```
+
+```{r}
+full_dataset <- read_csv("data/all_years_all_variables.csv")
+head(full_dataset)
+```
+
+First, let's just look at the basic characteristics of the data by looking at number of cases per state and year
+```{r}
+full_dataset %>%
+  group_by(masterid, state_abb, case_year) %>%
+  summarise(cases = n()) %>%
+  ggplot(aes(case_year)) +
+  geom_bar()
+```
+
+```{r}
+all_states <- map_data("state")
+
+
+full_dataset$State <- tolower(full_dataset$State)
+
+
+full_dataset2 <- full_dataset %>%
+  distinct(masterid, .keep_all = TRUE) %>%
+  group_by(State) %>%
+  count()
+
+all_states2 <- all_states %>%
+  left_join(full_dataset2, by = c("region" = "State"))
+
+ggplot() +
+  geom_polygon(data = all_states2, aes(x = long, y = lat, group = group, fill = all_states2$n)) +
+  scale_fill_gradient(low = "white", high = "red") +
+  labs(fill = "Number of Cases")
+```
+
+
+## Overrides Only
+
+The only problem with the chart below is that this doesn't take into account that way more states have elections than appointments.
+```{r}
+
+overrides <- full_dataset %>%
+  filter(Override == 1)
+
+overrides$election <- ifelse(overrides$partisan == 1, "partisan",
+                             ifelse(overrides$non_partisan == 1, "nonpartisan",
+                             ifelse(overrides$appointed == 1, "appointed",
+                             "merit")))
+
+overrides %>%
+  group_by(election) %>%
+  summarise(total = sum(Override)) %>%
+  ggplot() +
+  geom_col(aes(x = election, y = total))
+```
+
+These suffer from the same problem.
+```{r}
+overrides %>%
+  group_by(election, case_year) %>%
+  summarise(total = sum(Override)) %>%
+  ggplot() +
+  geom_boxplot(aes(x = election, y = total))
+```
+
+Distance between case decided and override. Initial support found.
+```{r}
+overrides$time_to_override <- overrides$Year - overrides$case_year
+overrides$court_lower <- abs(overrides$judicial - overrides$lower)
+overrides$court_upper <- abs(overrides$judicial - overrides$upper)
+
+
+
+ggplot() +
+  geom_bar(data = overrides, aes(x = time_to_override))
+
+```
+
+Ideological distance between court and branches when overridden
+```{r}
+a <- ggplot() +
+  geom_histogram(data = overrides, aes(x = court_lower))
+
+b <- ggplot() +
+  geom_histogram(data = overrides, aes(x = court_upper))
+
+gridExtra::grid.arrange(a, b)
+```
+
+```{r}
+overrides_by_state <- overrides %>%
+  group_by(State) %>%
+  count()
+
+override_state_map <- all_states %>%
+  left_join(overrides_by_state, by = c("region" = "State"))
+
+ggplot() +
+  geom_polygon(data = override_state_map, aes(x = long, y = lat, group = group, fill = n)) +
+  scale_fill_gradient(low = "white", high = "red") +
+  labs(fill = "Number of Overrides")
+```
+

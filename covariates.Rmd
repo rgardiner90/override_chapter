@@ -22,6 +22,8 @@ political_culture <- read_csv("data/political culture.csv")
 professional <- read_csv("data/ncsl professionalization.csv")
 
 ideology <- read_csv("data/pivoted_branches.csv")
+
+state_abb <- read_csv("state_abb.csv")
 ```
 
 ```{r}
@@ -33,7 +35,10 @@ legislative_control_long <- legislative_control %>%
          `2012`, `2013`, `2014`, `2015`, `2016`, `2017`, `2018`,
          key = "year", value = "unified")
 
-legislative_control_long
+legislative_control_long <- legislative_control_long %>%
+  filter(year >= 1995, year <= 2012)
+
+legislative_control_long$year <- as.numeric(legislative_control_long$year)
 ```
 
 # Manipulating Ideology
@@ -89,7 +94,8 @@ full_ideology <- rbind(ideology, ideology_1995, ideology_1997, ideology_1999, id
   group_by(State, Year) %>%
   arrange(State, Year)
 
-full_ideology
+full_ideology <- full_ideology %>%
+  filter(Year > 1994)
 ```
 
 
@@ -110,31 +116,222 @@ colnames(short_1998)
 
 # Getting rid of state code
 short_1995 <- short_1995 %>%
-  select(-state_code, -notes)
+  select(-state_code, -notes, -decs_yr, -decs_mo) %>%
+  mutate(case_year = 1995) 
 
 short_1996 <- short_1996 %>%
-  select(-docket_n, -decs_day, -agency_r)
+  select(-docket_n, -decs_day, -agency_r, -dec1_yr, -decs_mo) %>%
+  mutate(case_year = 1996) 
 
 short_1997 <- short_1997 %>%
-  select(-decs_day, -agency_r)
+  select(-decs_day, -agency_r, -dec1_yr, -decs_yr, -decs_mo) %>%
+  mutate(case_year = 1997)
 
 short_1998 <- short_1998 %>%
-  select(-decs_day, -agency_r)
+  select(-decs_day, -agency_r, -dec1_yr, -decs_yr, -decs_mo) %>%
+  mutate(case_year = 1998)
 ```
 
 1995 is already in long format.  Agency will not be included with 1995 data, amicus won't be with 1997 data.
 
 
-```{r}
-long_1997 <- read_excel("data/old data/1997.xlsx")
 
-long_1997$am
-X1996$cla
-colnames(X1996)
+
+The code below creates a data frame that has each state and their election system.
+```{r}
+election <- short_1995 %>%
+  select(state_2, partisan, non_partisan, appointed, appoint_reelect)
+
+election_state <- unique(election)
+
+index <- 1:51
+
+election_state <- cbind(election_state, index) 
+
+election_state <- election_state %>%
+  filter(!is.na(state_2)) %>%
+  rename(state_abb = state_2,
+         state_2 = index)
+
+election_state
 ```
 
--Double check that the column differences are just naming conventions and not real differences.  
-- rename columns 
-- assign election type 1996-1998
-- Merge the 4 years
-- Merge covariates
+Assigning election type to the 3 other years
+
+```{r}
+short_1996 <- short_1996 %>%
+  left_join(election_state, by = "state_2")
+
+short_1997 <- short_1997 %>%
+  left_join(election_state, by = "state_2")
+
+short_1998 <- short_1998 %>%
+  left_join(election_state, by = "state_2")
+```
+
+
+Now giving NA values for 1997 in classact and amicus to make the rbind work and changing name of for year of override for all groups:
+
+```{r}
+short_1997$classact <- NA
+short_1997$amicus <- NA
+
+# renaming the columns to combine all rows
+short_1996 <- short_1996 %>%
+  rename(override_year = YearOfOverride)
+
+short_1997 <- short_1997 %>%
+  rename(override_year = `Date of Override`)
+
+short_1998 <- short_1998 %>%
+  rename(override_year = Year_of_override)
+
+all_years_minus_1995 <- rbind(short_1996, short_1997, short_1998)
+```
+
+
+
+Now I will try to start merging the other covariates with the `all_years_minus_1995`
+
+```{r}
+all_years_minus_1995 <- all_years_minus_1995 %>%
+  left_join(political_culture, by = "state_2")
+
+all_years_minus_1995 <- all_years_minus_1995 %>%
+  left_join(professional, by = "State")
+
+```
+
+### Mergin Covariates
+
+```{r}
+library(stringr)
+all_years_minus_1995$state_abb <- toupper(all_years_minus_1995$state_abb)
+state_abb$state_abb <- toupper(state_abb$state_abb)
+
+# full_ideology <- full_ideology %>%
+#   left_join(state_abb, by = c("State" = "state_abb"))
+# 
+# 
+# ideology_legislative_control <- full_ideology %>%
+#   left_join(legislative_control_long, by = c("State.y" = "State", "Year" = "year"))
+
+all_years_minus_1995 <- all_years_minus_1995 %>%
+  full_join(full_ideology, by = c("state_abb" = "State"))
+
+# Can't do this one until I merge ideology 
+all_years_minus_1995 <- all_years_minus_1995 %>%
+  left_join(legislative_control_long, by = c("State", "Year" = "year"))
+
+head(all_years_minus_1995)
+```
+
+## Filtering out rows that are unneeded
+
+Now I need to take `all_years_minus_1995` and filter out the rows for cases in which there is an override, and the year is the past the override.  This will likely have some problems with the NAs, so will need to experiment.  I think temporarily, I will change the NA's to 2020 and then after filtering, switch them back to NA.
+
+```{r}
+
+all_years_minus_1995$override_year <- replace_na(all_years_minus_1995$override_year, 2020)
+
+
+all_years_minus_1995 <- all_years_minus_1995 %>%
+  filter(Year <= override_year)
+
+all_years_minus_1995$override_year <- ifelse(all_years_minus_1995$override_year == 2020, NA, all_years_minus_1995$override_year)
+```
+
+Looks like it worked, but now I have found another problem, rows with `Year` that are before the `case_year`.  Need to filter out those:
+```{r}
+all_years_minus_1995 <- all_years_minus_1995 %>%
+  filter(Year >= case_year)
+```
+
+## Fixing the override variable
+
+The override variable needs to be 0 for only the exact year in which it was overriden.  So `all_years_minus_1995$Override` should be around 300ish, not over 1000.  The following code fixes it.
+```{r}
+table(all_years_minus_1995$Override)
+all_years_minus_1995$Override <- ifelse(all_years_minus_1995$Override == 1 & all_years_minus_1995$override_year > all_years_minus_1995$Year,
+                                  0, 
+                                  all_years_minus_1995$Override)
+table(all_years_minus_1995$Override)
+```
+
+# 1995
+
+
+This is taking the data from the masters and getting it ready.
+```{r}
+
+library(haven)
+march_13_full_dataset <- read_dta("march 13 full dataset.dta")
+head(march_13_full_dataset)
+
+march_13_full_dataset %>%
+  filter(new_superseded == 1)
+
+march_13_full_dataset %>%
+  filter(docket == 1940087)
+
+short_1995_v2 <- march_13_full_dataset %>%
+  select(masterid, agency, state_2, new_superseded, docket,
+         amicus, decs_yr) %>%
+  mutate(classact = NA,
+         case_year = 1995) %>%
+  rename(state_abb = state_2,
+         cutt_off_year = decs_yr, # this is differnet than override_year because this is the dataset already to go
+         Override = new_superseded) %>%  
+  left_join(election_state, by = "state_abb")
+```
+
+
+
+
+
+
+
+## Adding covariates for 1995
+```{r}
+
+short_1995_v2 <- short_1995_v2 %>%
+  left_join(political_culture, by = "state_2")
+
+short_1995_v2 <- short_1995_v2 %>%
+  left_join(professional, by = "State")
+
+short_1995_v2$state_abb <- toupper(short_1995_v2$state_abb)
+
+
+short_1995_v2 <- short_1995_v2 %>%
+  rename(Year = cutt_off_year) %>%
+  full_join(full_ideology, by = c("state_abb" = "State", "Year" = "Year"))
+
+short_1995_v2 <- short_1995_v2 %>%
+  left_join(legislative_control_long, by = c("State", "Year" = "year"))
+```
+
+# Merging the 4 years
+
+Need to take out docket from short_1995_v2 and take out override_year from all_years_minus_1995.  Then I should be able to do a simple rbind
+
+```{r}
+final_1995 <- short_1995_v2 %>%
+  select(-docket, -X5)
+
+final_all_other_years <- all_years_minus_1995 %>%
+  select(-override_year, -X5)
+
+all_years <- rbind(final_1995, final_all_other_years)
+
+all_years
+```
+
+# Write the file
+
+Now I simply write a csv and start a new rmd file to begin EDA:
+
+```{r}
+write_csv(all_years, "data/all_years_all_variables.csv", na = "")
+```
+

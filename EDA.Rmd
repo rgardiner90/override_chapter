@@ -27,9 +27,11 @@ First, let's just look at the basic characteristics of the data by looking at nu
 full_dataset %>%
   group_by(masterid, state_abb, case_year) %>%
   summarise(cases = n()) %>%
+  ungroup() %>%
   ggplot(aes(case_year)) +
   geom_bar()
 ```
+
 
 ```{r}
 all_states <- map_data("state")
@@ -49,7 +51,8 @@ all_states2 <- all_states %>%
 ggplot() +
   geom_polygon(data = all_states2, aes(x = long, y = lat, group = group, fill = all_states2$n)) +
   scale_fill_gradient(low = "white", high = "red") +
-  labs(fill = "Number of Cases")
+  labs(fill = "Number of Cases") +
+  theme_void()
 ```
 
 
@@ -70,16 +73,20 @@ overrides %>%
   group_by(election) %>%
   summarise(total = sum(Override)) %>%
   ggplot() +
-  geom_col(aes(x = election, y = total))
+  geom_col(aes(x = election, y = total)) +
+  ylab("Total Number of Overrides") +
+  xlab("Selection System")
 ```
 
-These suffer from the same problem.
+This chart does show, however, the distribution of values versus the graph above that looks at raw numbers.
 ```{r}
 overrides %>%
   group_by(election, case_year) %>%
   summarise(total = sum(Override)) %>%
   ggplot() +
-  geom_boxplot(aes(x = election, y = total))
+  geom_boxplot(aes(x = election, y = total)) +
+  ylab("Total Number of Overrides") +
+  yxlab("Selection System")
 ```
 
 Distance between case decided and override. Initial support found.
@@ -91,20 +98,36 @@ overrides$court_upper <- abs(overrides$judicial - overrides$upper)
 
 
 ggplot() +
-  geom_bar(data = overrides, aes(x = time_to_override))
-
+  geom_bar(data = overrides, aes(x = time_to_override, fill = election)) +
+  xlab("Years between Decision and Override") +
+  ylab("Count")
 ```
 
 Ideological distance between court and branches when overridden
 ```{r}
 a <- ggplot() +
-  geom_histogram(data = overrides, aes(x = court_lower))
+  geom_histogram(data = overrides, aes(x = court_lower)) +
+  xlab("Distance between Court and Lower Chamber") +
+  ylab("Count")
 
 b <- ggplot() +
-  geom_histogram(data = overrides, aes(x = court_upper))
+  geom_histogram(data = overrides, aes(x = court_upper)) +
+  xlab("Distance between Court and Lower Chamber") +
+  ylab("Count")
+
 
 gridExtra::grid.arrange(a, b)
 ```
+
+I think a graph like this is important, but not going to happen right now.  If I do want a graph like this, then I will need to do something like put missing values at the median for the state
+```{r}
+overrides %>%
+  group_by(election, case_year) %>%
+  ggplot() +
+  geom_boxplot(aes(x = election, y = court_lower))
+```
+
+
 
 ```{r}
 overrides_by_state <- overrides %>%
@@ -117,6 +140,7 @@ override_state_map <- all_states %>%
 ggplot() +
   geom_polygon(data = override_state_map, aes(x = long, y = lat, group = group, fill = n)) +
   scale_fill_gradient(low = "white", high = "red") +
-  labs(fill = "Number of Overrides")
+  labs(fill = "Number of Overrides") +
+  theme_void()
 ```
 

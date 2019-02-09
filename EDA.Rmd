@@ -259,6 +259,20 @@ ggplot(data = overrides) +
 ggsave("figures/political culture.jpeg")
 ```
 
+```{r}
+ggplot(data = overrides) +
+  geom_density(aes(x= time_to_override, color = as.factor(culture))) +
+  labs(color = "Political Culture") +
+  xlab("Time to Override")
+
+ggsave("figures/Density plot by Culture.jpeg")
+
+overrides %>%
+  group_by(culture) %>%
+  summarise(mean = mean(time_to_override),
+            standard_dev = sd(time_to_override))
+```
+
 Moralistic was 120 overrides, Traditionalistic had 150 and individualualistic had 154.
 
 The total number of cases for each were: 9121 for Moralistic, 8731 for traditionalistic, and 10359 for individualistic.  Seems like there is a clear trend where traditionalistic has higher rate of overrides.

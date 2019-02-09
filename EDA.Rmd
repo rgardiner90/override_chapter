@@ -266,6 +266,14 @@ The total number of cases for each were: 9121 for Moralistic, 8731 for tradition
 Unified:
 ```{r}
 table(smaller_variable_eda$unified)
+
+table(overrides$unified)
+
+table(full_dataset$unified)
+
+105/6094
+
+311/21318
 ```
 
 ```{r}
@@ -273,11 +281,23 @@ table(overrides$unified)
 ```
 
 Professionalization:
+
+The first plot really isn't telling us much, givne that the bulk of observations are simply with level # 3.  More of a demonimator problem.
 ```{r}
 ggplot(data = overrides) +
   geom_bar(aes(Professionalization))
 
+table(full_dataset$Professionalization)
+
 ggsave("figures/professionalization.jpeg")
+
+ggplot() +
+  geom_density(data = overrides, aes(x = time_to_override, color = as.factor(Professionalization))) +
+  xlab("Years between Decision and Override") +
+  ylab("Density") +
+  labs(color = "Level of Professionalization")
+
+ggsave("figures/Professionalization and time to override.jpeg")
 ```
 
 

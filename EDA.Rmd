@@ -29,7 +29,11 @@ full_dataset %>%
   summarise(cases = n()) %>%
   ungroup() %>%
   ggplot(aes(case_year)) +
-  geom_bar()
+  geom_bar() +
+  ylab("Number of Cases per Year") +
+  xlab("Year of Decision")
+
+ggsave("figures/cases per year.jpeg")
 ```
 
 
@@ -53,6 +57,8 @@ ggplot() +
   scale_fill_gradient(low = "white", high = "red") +
   labs(fill = "Number of Cases") +
   theme_void()
+
+ggsave("figures/cases by state.jpeg")
 ```
 
 
@@ -68,7 +74,31 @@ overrides$election <- ifelse(overrides$partisan == 1, "partisan",
                              ifelse(overrides$non_partisan == 1, "nonpartisan",
                              ifelse(overrides$appointed == 1, "appointed",
                              "merit")))
+overrides$culture <- ifelse(overrides$Traditionalistic == 1, "traditionalistic",
+                            ifelse(overrides$Moralistic == 1, "moralistic",
+                                   "individualistic"))
 
+ggplot(data = overrides) +
+  geom_bar(aes(case_year)) +
+  xlab("Year when Case was Decided") +
+  ylab("Number of Overrides")
+
+ggsave("figures/overrides by year case decided.jpeg")
+```
+
+```{r}
+ggplot(data = overrides) +
+  geom_bar(aes(x = Year, fill = as.factor(case_year))) +
+  xlab("Year when Case was Overridden") +
+  ylab("Number of Overrides") +
+  labs(fill = "Year Case Decided")
+  
+
+ggsave("figures/Year overridden by Case Year.jpeg")
+```
+
+
+```{r}
 overrides %>%
   group_by(election) %>%
   summarise(total = sum(Override)) %>%
@@ -76,6 +106,8 @@ overrides %>%
   geom_col(aes(x = election, y = total)) +
   ylab("Total Number of Overrides") +
   xlab("Selection System")
+
+ggsave("figures/overrides by selection system.jpeg")
 ```
 
 This chart does show, however, the distribution of values versus the graph above that looks at raw numbers.
@@ -86,7 +118,9 @@ overrides %>%
   ggplot() +
   geom_boxplot(aes(x = election, y = total)) +
   ylab("Total Number of Overrides") +
-  yxlab("Selection System")
+  xlab("Selection System")
+
+ggsave("figures/distribution of overrides by selection system.jpeg")
 ```
 
 Distance between case decided and override. Initial support found.
@@ -95,29 +129,73 @@ overrides$time_to_override <- overrides$Year - overrides$case_year
 overrides$court_lower <- abs(overrides$judicial - overrides$lower)
 overrides$court_upper <- abs(overrides$judicial - overrides$upper)
 
+ggplot() +
+  geom_bar(data = overrides, aes(x = time_to_override)) +
+  xlab("Years between Decision and Override") +
+  ylab("Count")
 
+ggsave("figures/year between case and override.jpeg")
 
 ggplot() +
   geom_bar(data = overrides, aes(x = time_to_override, fill = election)) +
   xlab("Years between Decision and Override") +
   ylab("Count")
+
+ggsave("figures/year between case state and override.jpeg")
 ```
 
+```{r}
+ggplot() +
+  geom_density(data = overrides, aes(x = time_to_override, color = election)) +
+  xlab("Years between Decision and Override") +
+  ylab("Density")
+
+ggsave("figures/Density Plot of Years by Selection Type.jpeg")
+```
 Ideological distance between court and branches when overridden
 ```{r}
-a <- ggplot() +
-  geom_histogram(data = overrides, aes(x = court_lower)) +
+overrides %>%
+  group_by(state_abb, court_lower) %>%
+  count() %>%
+  ggplot() +
+  geom_point(aes(x = court_lower, y = n)) +
   xlab("Distance between Court and Lower Chamber") +
-  ylab("Count")
+  ylab("Count of Overrides")
 
-b <- ggplot() +
-  geom_histogram(data = overrides, aes(x = court_upper)) +
-  xlab("Distance between Court and Lower Chamber") +
-  ylab("Count")
+ggsave("figures/lower ideology and overrides.jpeg")
 
 
-gridExtra::grid.arrange(a, b)
+overrides %>%
+  group_by(state_abb, court_upper) %>%
+  count() %>%
+  ggplot() +
+  geom_point(aes(x = court_upper, y = n)) +
+  xlab("Distance between Court and Upper Chamber") +
+  ylab("Count of Overrides")
+
+
+ggsave("figures/upper ideology and overrides.jpeg")
 ```
+
+
+```{r}
+ggplot(data = overrides, aes(x = court_upper, y = time_to_override)) +
+  geom_point() +
+  geom_smooth() +
+  xlab("Distance between Court and Upper Chamber") +
+  ylab("Time between Decision and Override")
+
+ggsave("figures/Upper Ideology and Time.jpeg")
+
+ggplot(data = overrides, aes(x = court_lower, y = time_to_override)) +
+  geom_smooth() +
+  geom_point() +
+  xlab("Distance between Court and Lower Chamber") +
+  ylab("Time between Decision and Override")
+
+ggsave("figures/Lower Ideology and Time.jpeg")
+```
+
 
 I think a graph like this is important, but not going to happen right now.  If I do want a graph like this, then I will need to do something like put missing values at the median for the state
 ```{r}
@@ -142,5 +220,71 @@ ggplot() +
   scale_fill_gradient(low = "white", high = "red") +
   labs(fill = "Number of Overrides") +
   theme_void()
+
+ggsave("figures/map of overrides.jpeg")
 ```
+
+
+### Smaller variables
+
+These would include agency, amicus, moralistic, traditionalistic
+
+
+```{r}
+smaller_variable_eda <- full_dataset %>%
+  distinct(masterid, .keep_all = TRUE)
+```
+
+
+```{r}
+table(overrides$agency) # 88 means not relevant
+table(smaller_variable_eda$agency) # full dataset
+3263/22835 # about 14%
+52/338 # about 15%
+```
+
+```{r, amicus}
+table(overrides$amicus) # overrides
+table(smaller_variable_eda$amicus)
+46/279 # 15%
+1642/19712 # 8%
+```
+
+
+```{r}
+ggplot(data = overrides) +
+  geom_bar(aes(culture)) +
+  ylab("Number of Overrides")
+
+ggsave("figures/political culture.jpeg")
+```
+
+Moralistic was 120 overrides, Traditionalistic had 150 and individualualistic had 154.
+
+The total number of cases for each were: 9121 for Moralistic, 8731 for traditionalistic, and 10359 for individualistic.  Seems like there is a clear trend where traditionalistic has higher rate of overrides.
+
+Unified:
+```{r}
+table(smaller_variable_eda$unified)
+```
+
+```{r}
+table(overrides$unified)
+```
+
+Professionalization:
+```{r}
+ggplot(data = overrides) +
+  geom_bar(aes(Professionalization))
+
+ggsave("figures/professionalization.jpeg")
+```
+
+
+
+
+## Questions: 
+
+1. What to do about missind data for ideology?
+
 

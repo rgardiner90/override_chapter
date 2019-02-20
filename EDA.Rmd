@@ -314,8 +314,18 @@ ggplot() +
 ggsave("figures/Professionalization and time to override.jpeg")
 ```
 
+Salience:
+```{r}
+table(smaller_variable_eda$case_year, smaller_variable_eda$amicus)
 
+table(smaller_variable_eda$amicus)
 
+table(smaller_variable_eda$amicus, smaller_variable_eda$Override)
+
+41/19652
+
+7/1632
+```
 
 ## Questions: 
 

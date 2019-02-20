@@ -1,0 +1,14 @@
+---
+title: "Model"
+author: "Richard G. Gardiner"
+date: "2/20/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+When you start looking at the model, look at [David's Tidy Tuesday project](https://mobile.twitter.com/drob/status/1082318029168566273?s=21)

@@ -11,4 +11,4 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## R Markdown
 
-When you start looking at the model, look at [David's Tidy Tuesday project](https://mobile.twitter.com/drob/status/1082318029168566273?s=21)
+When you start looking at the model, look at [David's Tidy Tuesday project](https://mobile.twitter.com/drob/status/1082318029168566273?s=21). Also check out [this post](https://hockey-graphs.com/2019/01/07/quantifying-differences-between-the-regular-season-and-playoffs-using-survival-analysis/?blogsub=confirming#subscribe-blog).

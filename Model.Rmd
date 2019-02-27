@@ -9,6 +9,70 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## R Markdown
+## Data and Packages
 
 When you start looking at the model, look at [David's Tidy Tuesday project](https://mobile.twitter.com/drob/status/1082318029168566273?s=21). Also check out [this post](https://hockey-graphs.com/2019/01/07/quantifying-differences-between-the-regular-season-and-playoffs-using-survival-analysis/?blogsub=confirming#subscribe-blog).
+
+```{r, packages}
+library(tidyverse)
+library(survival)
+library(survminer)
+library(broom)
+library(scales)
+```
+
+```{r}
+full_dataset <- read_csv("data/all_years_all_variables.csv")
+head(full_dataset)
+```
+
+## Initial Analysis
+
+```{r}
+initial <- coxph(formula = Surv(case_year, Year, Override) ~ partisan,
+                 data = full_dataset)
+summary(initial)
+```
+
+
+```{r}
+fit <- survfit(formula = Surv(case_year, Year, Override) ~ partisan,
+                 data = full_dataset)
+ggsurvplot(fit, data = full_dataset, risk.table = TRUE)
+```
+
+```{r}
+tidy(fit) %>%
+  ggplot(aes(time, estimate, color = strata)) +
+  geom_line() +
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = .2)
+```
+
+## Full model
+
+```{r}
+full <- coxph(formula = Surv(case_year, Year, Override) ~ partisan +
+                non_partisan + appoint_reelect + lower + upper,
+                 data = full_dataset)
+
+summary(full)
+```
+
+
+
+```{r}
+full_fit <- survfit(formula = Surv(case_year, Year, Override) ~ partisan +
+                non_partisan + appoint_reelect + lower + upper,
+                 data = full_dataset)
+
+# doesn't seem to work becasue of multiple covariates
+tidy(full_fit) %>%
+  ggplot(aes(time, estimate)) +
+  geom_line() +
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = .2)
+```
+
+
+
+
+

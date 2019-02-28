@@ -19,6 +19,8 @@ library(survival)
 library(survminer)
 library(broom)
 library(scales)
+library(devtools)
+library(ggfortify)
 ```
 
 ```{r}
@@ -72,6 +74,12 @@ tidy(full_fit) %>%
   geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = .2)
 ```
 
+
+```{r}
+cox_fit <- survfit(full)
+
+autoplot(cox_fit)
+```
 
 
 

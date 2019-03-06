@@ -26,6 +26,10 @@ library(ggfortify)
 ```{r}
 full_dataset <- read_csv("data/all_years_all_variables.csv")
 head(full_dataset)
+
+full_dataset <- full_dataset %>%
+  filter(Override == 1) %>%
+  mutate(Year = Year + 0.01)
 ```
 
 Here I am adding the absolute distance variables:
@@ -58,6 +62,18 @@ tidy(fit) %>%
   geom_line() +
   geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = .2)
 ```
+
+
+```{r}
+appointed <- survfit(formula = Surv(case_year, Year, Override) ~ appointed,
+                 data = full_dataset)
+
+tidy(appointed) %>%
+  ggplot(aes(time, estimate, color = strata)) +
+  geom_line() +
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = .2)
+```
+
 
 ## Larger models
 

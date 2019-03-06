@@ -28,6 +28,15 @@ full_dataset <- read_csv("data/all_years_all_variables.csv")
 head(full_dataset)
 ```
 
+Here I am adding the absolute distance variables:
+
+```{r}
+full_dataset$court_gov_dist <- abs(full_dataset$judicial - full_dataset$governor)
+full_dataset$court_lower_dist <- abs(full_dataset$judicial - full_dataset$lower)
+full_dataset$court_upper_dist <- abs(full_dataset$judicial - full_dataset$upper)
+```
+
+
 ## Initial Analysis
 
 ```{r}
@@ -50,22 +59,24 @@ tidy(fit) %>%
   geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = .2)
 ```
 
-## Full model
+## Larger models
 
+### Introducing ideology
 ```{r}
 full <- coxph(formula = Surv(case_year, Year, Override) ~ partisan +
                 non_partisan + appoint_reelect + lower + upper,
                  data = full_dataset)
 
-summary(full)
+summary(full) # not great results for me.  Wrong direction
 ```
 
 
 
 ```{r}
 full_fit <- survfit(formula = Surv(case_year, Year, Override) ~ partisan +
-                non_partisan + appoint_reelect + lower + upper,
-                 data = full_dataset)
+                non_partisan + appoint_reelect + court_lower_dist +
+                court_upper_dist,
+                data = full_dataset)
 
 # doesn't seem to work becasue of multiple covariates
 tidy(full_fit) %>%
@@ -80,6 +91,72 @@ cox_fit <- survfit(full)
 
 autoplot(cox_fit)
 ```
+
+
+### adding in interaction terms
+
+```{r}
+full_dataset$partisan_ideology_gov <- full_dataset$partisan * full_dataset$court_gov_dist
+full_dataset$partisan_ideology_upper <- full_dataset$partisan * full_dataset$court_upper_dist
+full_dataset$partisan_ideology_lower <- full_dataset$partisan * full_dataset$court_lower_dist
+
+full_dataset$nonpartisan_ideology_gov <- full_dataset$non_partisan * full_dataset$court_gov_dist
+full_dataset$nonpartisan_ideology_upper <- full_dataset$non_partisan * full_dataset$court_upper_dist
+full_dataset$nonpartisan_ideology_lower <- full_dataset$non_partisan * full_dataset$court_lower_dist
+
+full_dataset$retention_ideology_gov <- full_dataset$appoint_reelect * full_dataset$court_gov_dist
+full_dataset$retention_ideology_upper <- full_dataset$appoint_reelect * full_dataset$court_upper_dist
+full_dataset$retention_ideology_lower <- full_dataset$appoint_reelect * full_dataset$court_lower_dist
+```
+
+```{r}
+interactions <- coxph(formula = Surv(case_year, Year, Override) ~ partisan +
+                non_partisan + appoint_reelect + lower + upper + 
+                partisan_ideology_lower + partisan_ideology_upper +
+                nonpartisan_ideology_lower + nonpartisan_ideology_upper +
+                retention_ideology_lower + retention_ideology_upper,
+                data = full_dataset)
+
+summary(interactions)
+```
+
+### Controls
+```{r}
+controls <- coxph(formula = Surv(case_year, Year, Override) ~ partisan +
+                non_partisan + appoint_reelect + lower + upper + 
+                partisan_ideology_lower + partisan_ideology_upper +
+                nonpartisan_ideology_lower + nonpartisan_ideology_upper +
+                retention_ideology_lower + retention_ideology_upper +
+                agency + classact + Moralistic + Traditionalistic +
+                Professionalization + unified,
+                data = full_dataset)
+
+summary(controls)
+```
+
+
+```{r}
+
+control_fit <- survfit(formula = Surv(case_year, Year, Override) ~ partisan +
+                non_partisan + appoint_reelect + lower + upper + 
+                partisan_ideology_lower + partisan_ideology_upper +
+                nonpartisan_ideology_lower + nonpartisan_ideology_upper +
+                retention_ideology_lower + retention_ideology_upper +
+                agency + classact + Moralistic + Traditionalistic +
+                Professionalization + unified,
+                data = full_dataset)
+
+
+
+# doesn't seem to work becasue of multiple covariates
+tidy(full_fit) %>%
+  ggplot(aes(time, estimate)) +
+  geom_line() +
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = .2)
+```
+
+
+
 
 
 

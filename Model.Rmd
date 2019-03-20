@@ -11,7 +11,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## Data and Packages
 
-When you start looking at the model, look at [David's Tidy Tuesday project](https://mobile.twitter.com/drob/status/1082318029168566273?s=21). Also check out [this post](https://hockey-graphs.com/2019/01/07/quantifying-differences-between-the-regular-season-and-playoffs-using-survival-analysis/?blogsub=confirming#subscribe-blog).
+When you start looking at the model, look at [David's Tidy Tuesday project](https://mobile.twitter.com/drob/status/1082318029168566273?s=21). Also check out [this post](https://hockey-graphs.com/2019/01/07/quantifying-differences-between-the-regular-season-and-playoffs-using-survival-analysis/?blogsub=confirming#subscribe-blog).  Lastly, I like [this link](https://rpubs.com/daspringate/survival)
 
 ```{r, packages}
 library(tidyverse)
@@ -21,6 +21,7 @@ library(broom)
 library(scales)
 library(devtools)
 library(ggfortify)
+library(survivalAnalysis)
 ```
 
 ```{r}
@@ -28,8 +29,11 @@ full_dataset <- read_csv("data/all_years_all_variables.csv")
 head(full_dataset)
 
 full_dataset <- full_dataset %>%
-  filter(Override == 1) %>%
   mutate(Year = Year + 0.01)
+
+full_dataset %>%
+  group_by(masterid) %>%
+  count(masterid)
 ```
 
 Here I am adding the absolute distance variables:
@@ -44,93 +48,101 @@ full_dataset$court_upper_dist <- abs(full_dataset$judicial - full_dataset$upper)
 ## Initial Analysis
 
 ```{r}
-initial <- coxph(formula = Surv(case_year, Year, Override) ~ partisan,
+election <- coxph(formula = Surv(case_year, Year, Override) ~ appointed,
                  data = full_dataset)
-summary(initial)
+summary(election)
 ```
 
 
 ```{r}
-fit <- survfit(formula = Surv(case_year, Year, Override) ~ partisan,
+fit <- survfit(formula = Surv(case_year, Year, Override) ~ appointed,
                  data = full_dataset)
-ggsurvplot(fit, data = full_dataset, risk.table = TRUE)
-```
-
-```{r}
+# ggsurvplot(fit, data = full_dataset, risk.table = TRUE)
 tidy(fit) %>%
   ggplot(aes(time, estimate, color = strata)) +
   geom_line() +
-  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = .2)
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = .2) +
+  scale_color_discrete(name = "Selection System",
+                       breaks = c("appointed=1", "appointed=0"),
+                       labels = c("Appointed", "Elected"))
+# ggsave("figures/Selection Survival.jpeg")
 ```
 
-
-```{r}
-appointed <- survfit(formula = Surv(case_year, Year, Override) ~ appointed,
-                 data = full_dataset)
-
-tidy(appointed) %>%
-  ggplot(aes(time, estimate, color = strata)) +
-  geom_line() +
-  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = .2)
-```
 
 
 ## Larger models
 
 ### Introducing ideology
 ```{r}
-full <- coxph(formula = Surv(case_year, Year, Override) ~ partisan +
-                non_partisan + appoint_reelect + lower + upper,
-                 data = full_dataset)
-
-summary(full) # not great results for me.  Wrong direction
-```
-
-
-
-```{r}
-full_fit <- survfit(formula = Surv(case_year, Year, Override) ~ partisan +
-                non_partisan + appoint_reelect + court_lower_dist +
-                court_upper_dist,
+ideology <- coxph(formula = Surv(case_year, Year, Override) ~ appointed +
+                lower + upper,
                 data = full_dataset)
 
-# doesn't seem to work becasue of multiple covariates
-tidy(full_fit) %>%
-  ggplot(aes(time, estimate)) +
-  geom_line() +
-  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = .2)
+summary(ideology)
+cox.zph(ideology) # testing for proportional hazards
 ```
 
 
-```{r}
-cox_fit <- survfit(full)
 
-autoplot(cox_fit)
+```{r}
+ideology_fit <- survfit(formula = Surv(case_year, Year, Override) ~ appointed +
+                upper +
+                lower,
+                data = full_dataset)
+
+
+plot(survfit(ideology),
+     xlim = c(1995,2012),
+     ylim = c(.99, 1.0))
+```
+
+Building a plot
+```{r}
+lower <- seq(-1.14, 1.14, by = 0.01)
+lower_appointed <- cbind(1,
+                         lower,
+                         mean(full_dataset$upper, na.rm = TRUE))
+
+lower_appointed <- as.data.frame(lower_appointed)
+colnames(lower_appointed) <- c("appointed", "lower", "upper")
+
+lower_elected <- cbind(0,
+                         lower,
+                         mean(full_dataset$upper, na.rm = TRUE))
+
+lower_elected <- as.data.frame(lower_elected)
+colnames(lower_elected) <- c("appointed", "lower", "upper")
+
+
+plot(survfit(ideology, newdata = lower_appointed),
+     xlim = c(1995, 2012),
+     ylim = c(.999, 1),
+     col = "red",
+     main = "Selection System Influence Across Ideology for Lower Chambers",
+     xlab = "Lower Ideology")
+lines(survfit(ideology, newdata = lower_elected),
+      col = "blue",
+      alpha = 0.5)
+legend(2007, 0.9998, legend=c("Appointed", "Elected"),
+       col=c("red", "blue"), lty = 1, cex=0.8)
 ```
 
 
 ### adding in interaction terms
 
 ```{r}
-full_dataset$partisan_ideology_gov <- full_dataset$partisan * full_dataset$court_gov_dist
-full_dataset$partisan_ideology_upper <- full_dataset$partisan * full_dataset$court_upper_dist
-full_dataset$partisan_ideology_lower <- full_dataset$partisan * full_dataset$court_lower_dist
+full_dataset$appointed_ideology_gov <- full_dataset$appointed * full_dataset$court_gov_dist
+full_dataset$appointed_ideology_upper <- full_dataset$appointed * full_dataset$court_upper_dist
+full_dataset$appointed_ideology_lower <- full_dataset$appointed * full_dataset$court_lower_dist
 
-full_dataset$nonpartisan_ideology_gov <- full_dataset$non_partisan * full_dataset$court_gov_dist
-full_dataset$nonpartisan_ideology_upper <- full_dataset$non_partisan * full_dataset$court_upper_dist
-full_dataset$nonpartisan_ideology_lower <- full_dataset$non_partisan * full_dataset$court_lower_dist
 
-full_dataset$retention_ideology_gov <- full_dataset$appoint_reelect * full_dataset$court_gov_dist
-full_dataset$retention_ideology_upper <- full_dataset$appoint_reelect * full_dataset$court_upper_dist
-full_dataset$retention_ideology_lower <- full_dataset$appoint_reelect * full_dataset$court_lower_dist
 ```
 
+
+Interactions don't work, moving on...
 ```{r}
-interactions <- coxph(formula = Surv(case_year, Year, Override) ~ partisan +
-                non_partisan + appoint_reelect + lower + upper + 
-                partisan_ideology_lower + partisan_ideology_upper +
-                nonpartisan_ideology_lower + nonpartisan_ideology_upper +
-                retention_ideology_lower + retention_ideology_upper,
+interactions <- coxph(formula = Surv(case_year, Year, Override) ~ appointed +
+                lower + upper + appointed_ideology_lower + appointed_ideology_upper,
                 data = full_dataset)
 
 summary(interactions)
@@ -138,40 +150,83 @@ summary(interactions)
 
 ### Controls
 ```{r}
-controls <- coxph(formula = Surv(case_year, Year, Override) ~ partisan +
-                non_partisan + appoint_reelect + lower + upper + 
-                partisan_ideology_lower + partisan_ideology_upper +
-                nonpartisan_ideology_lower + nonpartisan_ideology_upper +
-                retention_ideology_lower + retention_ideology_upper +
-                agency + classact + Moralistic + Traditionalistic +
+
+control_dataset <- full_dataset %>%
+  filter(agency != 88)
+
+controls <- coxph(formula = Surv(case_year, Year, Override) ~ appointed +
+                lower + upper + agency + classact + Moralistic + Traditionalistic +
                 Professionalization + unified,
-                data = full_dataset)
+                data = control_dataset)
 
 summary(controls)
 ```
 
 
 ```{r}
+trad_fit <- survfit(formula = Surv(case_year, Year, Override) ~ Traditionalistic,
+                 data = full_dataset)
 
-control_fit <- survfit(formula = Surv(case_year, Year, Override) ~ partisan +
-                non_partisan + appoint_reelect + lower + upper + 
-                partisan_ideology_lower + partisan_ideology_upper +
-                nonpartisan_ideology_lower + nonpartisan_ideology_upper +
-                retention_ideology_lower + retention_ideology_upper +
-                agency + classact + Moralistic + Traditionalistic +
-                Professionalization + unified,
-                data = full_dataset)
+tidy(trad_fit) %>%
+  ggplot(aes(time, estimate, color = strata)) +
+  geom_line() +
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = .2)
+```
 
+```{r}
+moral_fit <- survfit(formula = Surv(case_year, Year, Override) ~ Moralistic,
+                 data = full_dataset)
 
+tidy(moral_fit) %>%
+  ggplot(aes(time, estimate, color = strata)) +
+  geom_line() +
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = .2)
+```
 
-# doesn't seem to work becasue of multiple covariates
-tidy(full_fit) %>%
-  ggplot(aes(time, estimate)) +
+```{r}
+agency <- full_dataset %>%
+  filter(agency != 88)
+
+agency_fit <- survfit(formula = Surv(case_year, Year, Override) ~ agency,
+                 data = agency)
+
+tidy(agency_fit) %>%
+  ggplot(aes(time, estimate, color = strata)) +
+  geom_line() +
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = .2)
+```
+
+```{r}
+amicus_fit <- survfit(formula = Surv(case_year, Year, Override) ~ amicus,
+                 data = full_dataset)
+
+tidy(amicus_fit) %>%
+  filter(strata != "amicus=88") %>%
+  ggplot(aes(time, estimate, color = strata)) +
+  geom_line() +
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = .2)
+```
+
+```{r}
+unified_fit <- survfit(formula = Surv(case_year, Year, Override) ~ unified,
+                 data = full_dataset)
+
+tidy(unified_fit) %>%
+  ggplot(aes(time, estimate, color = strata)) +
   geom_line() +
   geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = .2)
 ```
 
 
+```{r}
+prof_fit <- survfit(formula = Surv(case_year, Year, Override) ~ Professionalization,
+                 data = full_dataset)
+
+tidy(prof_fit) %>%
+  ggplot(aes(time, estimate, color = strata)) +
+  geom_line() +
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = .2)
+```
 
 
 

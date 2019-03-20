@@ -33,7 +33,7 @@ full_dataset %>%
   ylab("Number of Cases per Year") +
   xlab("Year of Decision")
 
-ggsave("figures/cases per year.jpeg")
+# ggsave("figures/cases per year.jpeg")
 ```
 
 
@@ -58,7 +58,7 @@ ggplot() +
   labs(fill = "Number of Cases") +
   theme_void()
 
-ggsave("figures/cases by state.jpeg")
+# ggsave("figures/cases by state.jpeg")
 ```
 
 
@@ -83,7 +83,7 @@ ggplot(data = overrides) +
   xlab("Year when Case was Decided") +
   ylab("Number of Overrides")
 
-ggsave("figures/overrides by year case decided.jpeg")
+# ggsave("figures/overrides by year case decided.jpeg")
 ```
 
 ```{r}
@@ -94,7 +94,7 @@ ggplot(data = overrides) +
   labs(fill = "Year Case Decided")
   
 
-ggsave("figures/Year overridden by Case Year.jpeg")
+# ggsave("figures/Year overridden by Case Year.jpeg")
 ```
 
 
@@ -107,20 +107,33 @@ overrides %>%
   ylab("Total Number of Overrides") +
   xlab("Selection System")
 
-ggsave("figures/overrides by selection system.jpeg")
+# ggsave("figures/overrides by selection system.jpeg")
 ```
 
 This chart does show, however, the distribution of values versus the graph above that looks at raw numbers.
 ```{r}
-overrides %>%
-  group_by(election, case_year) %>%
-  summarise(total = sum(Override)) %>%
-  ggplot() +
-  geom_boxplot(aes(x = election, y = total)) +
-  ylab("Total Number of Overrides") +
-  xlab("Selection System")
+# overrides %>%
+#   group_by(election, case_year) %>%
+#   summarise(total = sum(Override)) %>%
+#   ggplot() +
+#   geom_boxplot(aes(x = election, y = total)) +
+#   ylab("Total Number of Overrides") +
+#   xlab("Selection System")
 
-ggsave("figures/distribution of overrides by selection system.jpeg")
+
+overrides %>%
+  group_by(state_abb, election, case_year) %>%
+  summarise(total = sum(Override)) %>%
+  ungroup() %>%
+  group_by(state_abb, election) %>%
+  summarise(mean = mean(total)) %>%
+  ggplot() +
+  geom_boxplot(aes(x = election, y = mean)) +
+  ylab("Total Number of Overrides") +
+  xlab("Selection System") %>%
+  labs(title = "Distribution of State Averages of Overrides by Selection System")
+
+# ggsave("figures/distribution of overrides by selection system.jpeg")
 ```
 
 Distance between case decided and override. Initial support found.
@@ -134,14 +147,14 @@ ggplot() +
   xlab("Years between Decision and Override") +
   ylab("Count")
 
-ggsave("figures/year between case and override.jpeg")
+# ggsave("figures/year between case and override.jpeg")
 
 ggplot() +
   geom_bar(data = overrides, aes(x = time_to_override, fill = election)) +
   xlab("Years between Decision and Override") +
   ylab("Count")
 
-ggsave("figures/year between case state and override.jpeg")
+# ggsave("figures/year between case state and override.jpeg")
 ```
 
 ```{r}
@@ -150,7 +163,7 @@ ggplot() +
   xlab("Years between Decision and Override") +
   ylab("Density")
 
-ggsave("figures/Density Plot of Years by Selection Type.jpeg")
+# ggsave("figures/Density Plot of Years by Selection Type.jpeg")
 ```
 Ideological distance between court and branches when overridden
 ```{r}
@@ -162,7 +175,7 @@ overrides %>%
   xlab("Distance between Court and Lower Chamber") +
   ylab("Count of Overrides")
 
-ggsave("figures/lower ideology and overrides.jpeg")
+# ggsave("figures/lower ideology and overrides.jpeg")
 
 
 overrides %>%
@@ -174,7 +187,7 @@ overrides %>%
   ylab("Count of Overrides")
 
 
-ggsave("figures/upper ideology and overrides.jpeg")
+# ggsave("figures/upper ideology and overrides.jpeg")
 ```
 
 
@@ -185,7 +198,7 @@ ggplot(data = overrides, aes(x = court_upper, y = time_to_override)) +
   xlab("Distance between Court and Upper Chamber") +
   ylab("Time between Decision and Override")
 
-ggsave("figures/Upper Ideology and Time.jpeg")
+# ggsave("figures/Upper Ideology and Time.jpeg")
 
 ggplot(data = overrides, aes(x = court_lower, y = time_to_override)) +
   geom_smooth() +
@@ -193,7 +206,7 @@ ggplot(data = overrides, aes(x = court_lower, y = time_to_override)) +
   xlab("Distance between Court and Lower Chamber") +
   ylab("Time between Decision and Override")
 
-ggsave("figures/Lower Ideology and Time.jpeg")
+# ggsave("figures/Lower Ideology and Time.jpeg")
 ```
 
 
@@ -221,7 +234,7 @@ ggplot() +
   labs(fill = "Number of Overrides") +
   theme_void()
 
-ggsave("figures/map of overrides.jpeg")
+# ggsave("figures/map of overrides.jpeg")
 ```
 
 
@@ -256,7 +269,7 @@ ggplot(data = overrides) +
   geom_bar(aes(culture)) +
   ylab("Number of Overrides")
 
-ggsave("figures/political culture.jpeg")
+# ggsave("figures/political culture.jpeg")
 ```
 
 ```{r}
@@ -265,7 +278,7 @@ ggplot(data = overrides) +
   labs(color = "Political Culture") +
   xlab("Time to Override")
 
-ggsave("figures/Density plot by Culture.jpeg")
+# ggsave("figures/Density plot by Culture.jpeg")
 
 overrides %>%
   group_by(culture) %>%
@@ -303,7 +316,7 @@ ggplot(data = overrides) +
 
 table(full_dataset$Professionalization)
 
-ggsave("figures/professionalization.jpeg")
+# ggsave("figures/professionalization.jpeg")
 
 ggplot() +
   geom_density(data = overrides, aes(x = time_to_override, color = as.factor(Professionalization))) +
@@ -311,7 +324,7 @@ ggplot() +
   ylab("Density") +
   labs(color = "Level of Professionalization")
 
-ggsave("figures/Professionalization and time to override.jpeg")
+# ggsave("figures/Professionalization and time to override.jpeg")
 ```
 
 Salience:

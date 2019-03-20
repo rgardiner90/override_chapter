@@ -84,6 +84,9 @@ ggplot(data = overrides) +
   ylab("Number of Overrides")
 
 # ggsave("figures/overrides by year case decided.jpeg")
+
+table(overrides$unified)
+table(full_dataset$unified)
 ```
 
 ```{r}

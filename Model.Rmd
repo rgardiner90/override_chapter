@@ -22,19 +22,34 @@ library(scales)
 library(devtools)
 library(ggfortify)
 library(survivalAnalysis)
+library(Amelia)
 ```
 
 ```{r}
-full_dataset <- read_csv("data/all_years_all_variables.csv")
-head(full_dataset)
+dataset <- read_csv("data/all_years_all_variables.csv")
+head(dataset)
 
-full_dataset <- full_dataset %>%
+dataset <- dataset %>%
   mutate(Year = Year + 0.01)
 
-full_dataset %>%
+dataset %>%
   group_by(masterid) %>%
   count(masterid)
 ```
+
+## Amelia 
+
+This uses the data from Amelia to fill in missing data.  
+```{r Amelia}
+# filled_data <- amelia(dataset, idvars = c("state_abb", "State"))
+# 
+# write.amelia(filled_data, file.stem = "Amelia_data", format = "csv")
+# 
+full_dataset <- read_csv("data/Amelia_data1.csv")
+
+full_dataset
+```
+
 
 Here I am adding the absolute distance variables:
 
@@ -42,6 +57,14 @@ Here I am adding the absolute distance variables:
 full_dataset$court_gov_dist <- abs(full_dataset$judicial - full_dataset$governor)
 full_dataset$court_lower_dist <- abs(full_dataset$judicial - full_dataset$lower)
 full_dataset$court_upper_dist <- abs(full_dataset$judicial - full_dataset$upper)
+```
+
+### Testing Amelia package
+
+```{r}
+test <- full_dataset
+
+
 ```
 
 

@@ -168,50 +168,6 @@ ggplot() +
 
 # ggsave("figures/Density Plot of Years by Selection Type.jpeg")
 ```
-Ideological distance between court and branches when overridden
-```{r}
-overrides %>%
-  group_by(state_abb, court_lower) %>%
-  count() %>%
-  ggplot() +
-  geom_point(aes(x = court_lower, y = n)) +
-  xlab("Distance between Court and Lower Chamber") +
-  ylab("Count of Overrides")
-
-# ggsave("figures/lower ideology and overrides.jpeg")
-
-
-overrides %>%
-  group_by(state_abb, court_upper) %>%
-  count() %>%
-  ggplot() +
-  geom_point(aes(x = court_upper, y = n)) +
-  xlab("Distance between Court and Upper Chamber") +
-  ylab("Count of Overrides")
-
-
-# ggsave("figures/upper ideology and overrides.jpeg")
-```
-
-
-```{r}
-ggplot(data = overrides, aes(x = court_upper, y = time_to_override)) +
-  geom_point() +
-  geom_smooth() +
-  xlab("Distance between Court and Upper Chamber") +
-  ylab("Time between Decision and Override")
-
-# ggsave("figures/Upper Ideology and Time.jpeg")
-
-ggplot(data = overrides, aes(x = court_lower, y = time_to_override)) +
-  geom_smooth() +
-  geom_point() +
-  xlab("Distance between Court and Lower Chamber") +
-  ylab("Time between Decision and Override")
-
-# ggsave("figures/Lower Ideology and Time.jpeg")
-```
-
 
 I think a graph like this is important, but not going to happen right now.  If I do want a graph like this, then I will need to do something like put missing values at the median for the state
 ```{r}
@@ -343,8 +299,77 @@ table(smaller_variable_eda$amicus, smaller_variable_eda$Override)
 7/1632
 ```
 
-## Questions: 
+## New Ideology
 
-1. What to do about missind data for ideology?
+I am uploading the data from the amelia dataset that will hopefully help with the data problem.
+
+```{r}
+amelia <- read_csv("data/Amelia_data1.csv")
+```
+
+Ideological distance between court and branches when overridden
+```{r}
+
+a_overrides <- amelia %>%
+  filter(Override == 1) %>%
+  mutate(time_to_override = Year - case_year)
+
+
+
+a_overrides %>%
+  group_by(state_abb, court_lower_dist) %>%
+  count() %>%
+  ggplot() +
+  geom_point(aes(x = court_lower_dist, y = n)) +
+  xlab("Distance between Court and Lower Chamber") +
+  ylab("Count of Overrides") +
+  ylim(0,10)
+
+# ggsave("figures/lower ideology and overrides.jpeg")
+
+
+a_overrides %>%
+  group_by(state_abb, court_upper_dist) %>%
+  count() %>%
+  ggplot() +
+  geom_point(aes(x = court_upper_dist, y = n)) +
+  xlab("Distance between Court and Upper Chamber") +
+  ylab("Count of Overrides") +
+  ylim(0,10)
+
+
+# ggsave("figures/upper ideology and overrides.jpeg")
+```
+
+
+```{r}
+ggplot(data = a_overrides, aes(x = court_upper_dist, y = time_to_override, 
+                               color = as.factor(appointed))) +
+  geom_point() +
+  stat_smooth(method = "lm") +
+  xlab("Distance between Court and Upper Chamber") +
+  ylab("Time between Decision and Override") +
+  scale_color_manual(name = "Election Status",
+                     breaks = c(0, 1),
+                     values = c("red", "blue"),
+                     labels = c("Elected", "Appointed"))
+
+# ggsave("figures/Upper Ideology and Time.jpeg")
+
+ggplot(data = a_overrides, aes(x = court_lower_dist, y = time_to_override,
+                               color = as.factor(appointed))) +
+  stat_smooth(method = "lm") +
+  geom_point() +
+  xlab("Distance between Court and Lower Chamber") +
+  ylab("Time between Decision and Override") +
+  scale_color_manual(name = "Election Status",
+                     breaks = c(0, 1),
+                     values = c("red", "blue"),
+                     labels = c("Elected", "Appointed"))
+
+# ggsave("figures/Lower Ideology and Time.jpeg")
+```
+
+
 
 

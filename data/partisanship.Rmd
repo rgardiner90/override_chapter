@@ -1,0 +1,41 @@
+---
+title: "Partisanship"
+author: "Richard G. Gardiner"
+date: "3/22/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## data and packages
+
+```{r}
+library(tidyverse)
+library(readxl)
+```
+
+```{r}
+original <- read_excel("partisan.xlsx")
+later <- read_excel("later partisan.xlsx")
+```
+
+```{r}
+full_legislative_control <- original %>%
+  gather(Year, control, -State) %>%
+  mutate(RepublicanLegslature = ifelse(control == "Rep", 1, 0),
+         SplitLegislature = ifelse(control == "Split", 1, 0)) %>%
+  select(-control) %>%
+  rbind(later) %>%
+  filter(Year > 1994)
+
+write_csv(full_legislative_control, "full_legislative_control.csv")
+```
+
+
+
+
+
+
+

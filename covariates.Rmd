@@ -23,6 +23,8 @@ professional <- read_csv("data/ncsl professionalization.csv")
 
 ideology <- read_csv("data/pivoted_branches.csv")
 
+legislative_partisanship <- read_csv("data/full_legislative_control.csv")
+
 state_abb <- read_csv("state_abb.csv")
 ```
 
@@ -202,7 +204,7 @@ all_years_minus_1995 <- all_years_minus_1995 %>%
 
 ```
 
-### Mergin Covariates
+### Merging Covariates
 
 ```{r}
 library(stringr)
@@ -327,11 +329,17 @@ all_years <- rbind(final_1995, final_all_other_years)
 all_years
 ```
 
+## Merging the Full Leigslative Control variable
+```{r}
+all_years <- all_years %>%
+  left_join(legislative_partisanship, by = c("Year", "State"))
+```
+
 # Write the file
 
 Now I simply write a csv and start a new rmd file to begin EDA:
 
 ```{r}
-write_csv(all_years, "data/all_years_all_variables.csv", na = "")
+# write_csv(all_years, "data/all_years_all_variables.csv", na = "")
 ```
 

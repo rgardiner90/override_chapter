@@ -23,7 +23,7 @@ professional <- read_csv("data/ncsl professionalization.csv")
 
 ideology <- read_csv("data/pivoted_branches.csv")
 
-legislative_partisanship <- read_csv("data/full_legislative_control.csv")
+court_legislature_partisanship <- read_csv("data/partisan_control.csv")
 
 state_abb <- read_csv("state_abb.csv")
 ```
@@ -332,7 +332,7 @@ all_years
 ## Merging the Full Leigslative Control variable
 ```{r}
 all_years <- all_years %>%
-  left_join(legislative_partisanship, by = c("Year", "State"))
+  left_join(court_legislature_partisanship, by = c("Year", "State"))
 ```
 
 # Write the file

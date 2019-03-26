@@ -9,6 +9,9 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+NOTE: THIS FILE WAS ORIGINALLY USED TO CALCULATE THE DICHOTOMOUS IDEOLOGICAL DISTANCE VARIABLE.  IT IS NOT LONGER NEEDED (NOW DONE IN OTHER FILES).  
+
+
 ## data and packages
 
 ```{r}

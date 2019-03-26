@@ -23,8 +23,6 @@ professional <- read_csv("data/ncsl professionalization.csv")
 
 ideology <- read_csv("data/pivoted_branches.csv")
 
-court_legislature_partisanship <- read_csv("data/partisan_control.csv")
-
 state_abb <- read_csv("state_abb.csv")
 ```
 
@@ -329,11 +327,59 @@ all_years <- rbind(final_1995, final_all_other_years)
 all_years
 ```
 
+
+
+
+
 ## Merging the Full Leigslative Control variable
+
 ```{r}
-all_years <- all_years %>%
-  left_join(court_legislature_partisanship, by = c("Year", "State"))
+original <- read_excel("data/partisan.xlsx")
+later <- read_excel("data/later partisan.xlsx")
+
+full_legislative_control <- original %>%
+  gather(Year, control, -State) %>%
+  mutate(RepublicanLegslature = ifelse(control == "Rep", 1, 0),
+         SplitLegislature = ifelse(control == "Split", 1, 0)) %>%
+  select(-control) %>%
+  rbind(later) %>%
+  filter(Year > 1994) %>%
+  mutate(Year = as.numeric(Year))
 ```
+
+```{r}
+library(haven)
+
+pajid <- read_dta("data/pajid")
+
+seats <- pajid %>%
+  filter(year > 1994) %>%
+  group_by(year, state) %>%
+  summarize(n = n())
+  
+number_dems <- pajid %>%
+  filter(year > 1994) %>%
+  group_by(year, state) %>%
+  summarize(num_dems <- sum(justicepartyID)) %>%
+  rename(num_dems = 3)
+
+majority_dems <- number_dems %>%
+  left_join(seats, by = c("state", "year")) %>%
+  mutate(majority_dems = if_else(num_dems > (.5 * n), 1, 0)) %>%
+  select(year, state, majority_dems) %>%
+  filter(year %in% c(1995:1998))
+
+all_years <- all_years %>%
+  left_join(full_legislative_control, by = c("Year", "State")) %>%
+  left_join(majority_dems, by = c("State" = "state", "case_year" = "year")) %>%
+  mutate(republican_court = if_else(majority_dems == 0, 1, 0),
+         ideologically_similar = if_else(
+           RepublicanLegslature == republican_court, 1, 0))
+
+```
+
+
+
 
 # Write the file
 

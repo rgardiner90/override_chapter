@@ -383,14 +383,16 @@ full_dataset %>%
 
 full_dataset %>%
   filter(!is.na(ideologically_similar)) %>%
-  mutate(Year = as.Date(as.character(Year), "%Y")) %>%
+  mutate(Year = as.Date(as.character(Year), "%Y"),
+         appointed = ifelse(appointed == 1, "Appointed", "Elected")) %>%
   group_by(appointed, Year) %>%
   summarize(mean_ideology_similar = mean(ideologically_similar)) %>%
   ggplot(aes(x = Year, y = mean_ideology_similar, color = as.factor(appointed))) +
   geom_line() +
   labs(y = "Proportion of Cases with Ideologically Disimilar Branches") +
-  scale_color_discrete(name = "Appointed") +
-  theme_light()
+  scale_color_discrete(name = "Selection System") +
+  theme_light() +
+  ylim(c(0,1))
 
 # ggsave("figures/Ideology over time.jpeg")
 ```

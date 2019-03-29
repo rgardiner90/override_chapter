@@ -133,7 +133,8 @@ tidy(ideology_fit) %>%
   facet_wrap(~strata) +
   theme_light() +
   labs(y = "Estimated Likelihood of Survival",
-       x = "Year")
+       x = "Year",
+       color = "Selection System and \nIdeological Similarity")
 
 # ggsave("figures/Selection and Ideology survival.jpeg")
 ```
@@ -172,7 +173,8 @@ tidy(interactions_fit) %>%
   facet_wrap(~strata) +
   theme_light() +
   labs(y = "Estimated Likelihood of Survival",
-       x = "Year")  
+       x = "Year",
+       color = "Interaction between Selection System \nand Ideological Similarity")  
 
 # ggsave("figures/Interaction Survival.jpeg")
 ```

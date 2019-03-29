@@ -88,7 +88,11 @@ tidy(fit) %>%
   geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = .2) +
   scale_color_discrete(name = "Selection System",
                        breaks = c("appointed=1", "appointed=0"),
-                       labels = c("Appointed", "Elected"))
+                       labels = c("Appointed", "Elected")) +
+  theme_light() +
+  labs(y = "Estimated Likelihood of Survival",
+       x = "Year")
+
 # ggsave("figures/Selection Survival.jpeg")
 ```
 
@@ -127,7 +131,11 @@ tidy(ideology_fit) %>%
   geom_line() +
   geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = .2) +
   facet_wrap(~strata) +
-  theme_light()
+  theme_light() +
+  labs(y = "Estimated Likelihood of Survival",
+       x = "Year")
+
+# ggsave("figures/Selection and Ideology survival.jpeg")
 ```
 
 
@@ -139,11 +147,34 @@ dataset <- dataset %>%
   mutate(appointed_similar = appointed * ideologically_similar)
 
 
-interactions <- coxph(formula = Surv(case_year, Year, Override) ~ appointed +
+interactions <- coxph(formula = Surv(case_year, Year, Override) ~ appointed + ideologically_similar +
+                appointed_similar,
+                data = dataset)
+summary(interactions)
+
+interactions_fit <- survfit(formula = Surv(case_year, Year, Override) ~ appointed + ideologically_similar +
                 appointed_similar,
                 data = dataset)
 
-summary(interactions)
+tidy(interactions_fit) %>%
+  mutate(strata = if_else(strata == "appointed=0, ideologically_similar=0, appointed_similar=0", 
+                          "Elected and Dissimilar",
+                          if_else(strata == "appointed=0, ideologically_similar=1, appointed_similar=0",
+                                  "Elected and Similar",
+                                  if_else(strata == 
+                                            "appointed=1, ideologically_similar=1, appointed_similar=1", 
+                                          "Appointed and Similar", "Appointed and Dissimilar")))) %>%
+  filter(strata %in% c("Elected and Dissimilar", "Elected and Similar", "Appointed and Similar",
+                       "Appointed and Dissimilar")) %>%
+  ggplot(aes(time, estimate, color = strata)) +
+  geom_line() +
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = .2) +
+  facet_wrap(~strata) +
+  theme_light() +
+  labs(y = "Estimated Likelihood of Survival",
+       x = "Year")  
+
+# ggsave("figures/Interaction Survival.jpeg")
 ```
 
 ### Controls

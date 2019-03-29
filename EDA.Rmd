@@ -299,7 +299,7 @@ table(smaller_variable_eda$amicus, smaller_variable_eda$Override)
 7/1632
 ```
 
-## New Ideology
+## New Ideology with Amelia
 
 I am uploading the data from the amelia dataset that will hopefully help with the data problem.
 
@@ -372,7 +372,7 @@ ggplot(data = a_overrides, aes(x = court_lower_dist, y = time_to_override,
 
 
 
-## New Ideology
+## New Ideology Dichotomous
 
 
 ```{r}

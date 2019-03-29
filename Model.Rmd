@@ -30,7 +30,10 @@ dataset <- read_csv("data/all_years_all_variables.csv")
 head(dataset)
 
 dataset <- dataset %>%
-  mutate(Year = Year + 0.01)
+  mutate(Year = Year + 0.01,
+         Override = ifelse(Override == 109, 0, Override))
+
+
 
 dataset %>%
   group_by(masterid) %>%
@@ -45,26 +48,24 @@ This uses the data from Amelia to fill in missing data.
 # 
 # write.amelia(filled_data, file.stem = "Amelia_data", format = "csv")
 # 
-full_dataset <- read_csv("data/Amelia_data1.csv")
-
-full_dataset
+# dataset <- read_csv("data/Amelia_data1.csv")
+# 
+# dataset
 ```
 
 
 Here I am adding the absolute distance variables:
 
 ```{r}
-full_dataset$court_gov_dist <- abs(full_dataset$judicial - full_dataset$governor)
-full_dataset$court_lower_dist <- abs(full_dataset$judicial - full_dataset$lower)
-full_dataset$court_upper_dist <- abs(full_dataset$judicial - full_dataset$upper)
+# dataset$court_gov_dist <- abs(dataset$judicial - dataset$governor)
+# dataset$court_lower_dist <- abs(dataset$judicial - dataset$lower)
+# dataset$court_upper_dist <- abs(dataset$judicial - dataset$upper)
 ```
 
 ### Testing Amelia package
 
 ```{r}
-test <- full_dataset
-
-
+# test <- dataset
 ```
 
 
@@ -72,15 +73,15 @@ test <- full_dataset
 
 ```{r}
 election <- coxph(formula = Surv(case_year, Year, Override) ~ appointed,
-                 data = full_dataset)
+                 data = dataset)
 summary(election)
 ```
 
 
 ```{r}
 fit <- survfit(formula = Surv(case_year, Year, Override) ~ appointed,
-                 data = full_dataset)
-# ggsurvplot(fit, data = full_dataset, risk.table = TRUE)
+                 data = dataset)
+# ggsurvplot(fit, data = dataset, risk.table = TRUE)
 tidy(fit) %>%
   ggplot(aes(time, estimate, color = strata)) +
   geom_line() +
@@ -98,8 +99,8 @@ tidy(fit) %>%
 ### Introducing ideology
 ```{r}
 ideology <- coxph(formula = Surv(case_year, Year, Override) ~ appointed +
-                lower + upper,
-                data = full_dataset)
+                ideologically_similar,
+                data = dataset)
 
 summary(ideology)
 cox.zph(ideology) # testing for proportional hazards
@@ -109,64 +110,38 @@ cox.zph(ideology) # testing for proportional hazards
 
 ```{r}
 ideology_fit <- survfit(formula = Surv(case_year, Year, Override) ~ appointed +
-                upper +
-                lower,
-                data = full_dataset)
+                ideologically_similar,
+                data = dataset)
 
 
 plot(survfit(ideology),
      xlim = c(1995,2012),
      ylim = c(.99, 1.0))
-```
 
-Building a plot
-```{r}
-lower <- seq(-1.14, 1.14, by = 0.01)
-lower_appointed <- cbind(1,
-                         lower,
-                         mean(full_dataset$upper, na.rm = TRUE))
-
-lower_appointed <- as.data.frame(lower_appointed)
-colnames(lower_appointed) <- c("appointed", "lower", "upper")
-
-lower_elected <- cbind(0,
-                         lower,
-                         mean(full_dataset$upper, na.rm = TRUE))
-
-lower_elected <- as.data.frame(lower_elected)
-colnames(lower_elected) <- c("appointed", "lower", "upper")
-
-
-plot(survfit(ideology, newdata = lower_appointed),
-     xlim = c(1995, 2012),
-     ylim = c(.999, 1),
-     col = "red",
-     main = "Selection System Influence Across Ideology for Lower Chambers",
-     xlab = "Lower Ideology")
-lines(survfit(ideology, newdata = lower_elected),
-      col = "blue",
-      alpha = 0.5)
-legend(2007, 0.9998, legend=c("Appointed", "Elected"),
-       col=c("red", "blue"), lty = 1, cex=0.8)
+tidy(ideology_fit) %>%
+  mutate(strata = if_else(strata == "appointed=0, ideologically_similar=1", "Elected and Similar",
+                          if_else(strata == "appointed=0, ideologically_similar=0", "Elected and Dissimilar",
+                                  if_else(strata == "appointed=1, ideologically_similar=0", 
+                                          "Appointed and Dissimilar", "Appointed and Similar")))) %>%
+  ggplot(aes(time, estimate, color = strata)) +
+  geom_line() +
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = .2) +
+  facet_wrap(~strata) +
+  theme_light()
 ```
 
 
 ### adding in interaction terms
 
-```{r}
-full_dataset$appointed_ideology_gov <- full_dataset$appointed * full_dataset$court_gov_dist
-full_dataset$appointed_ideology_upper <- full_dataset$appointed * full_dataset$court_upper_dist
-full_dataset$appointed_ideology_lower <- full_dataset$appointed * full_dataset$court_lower_dist
-
-
-```
-
-
 Interactions don't work, moving on...
 ```{r}
+dataset <- dataset %>%
+  mutate(appointed_similar = appointed * ideologically_similar)
+
+
 interactions <- coxph(formula = Surv(case_year, Year, Override) ~ appointed +
-                lower + upper + appointed_ideology_lower + appointed_ideology_upper,
-                data = full_dataset)
+                appointed_similar,
+                data = dataset)
 
 summary(interactions)
 ```
@@ -174,11 +149,11 @@ summary(interactions)
 ### Controls
 ```{r}
 
-control_dataset <- full_dataset %>%
+control_dataset <- dataset %>%
   filter(agency != 88)
 
 controls <- coxph(formula = Surv(case_year, Year, Override) ~ appointed +
-                lower + upper + agency + classact + Moralistic + Traditionalistic +
+                ideologically_similar + appointed_similar + classact + Moralistic + Traditionalistic +
                 Professionalization + unified,
                 data = control_dataset)
 
@@ -186,70 +161,6 @@ summary(controls)
 ```
 
 
-```{r}
-trad_fit <- survfit(formula = Surv(case_year, Year, Override) ~ Traditionalistic,
-                 data = full_dataset)
-
-tidy(trad_fit) %>%
-  ggplot(aes(time, estimate, color = strata)) +
-  geom_line() +
-  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = .2)
-```
-
-```{r}
-moral_fit <- survfit(formula = Surv(case_year, Year, Override) ~ Moralistic,
-                 data = full_dataset)
-
-tidy(moral_fit) %>%
-  ggplot(aes(time, estimate, color = strata)) +
-  geom_line() +
-  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = .2)
-```
-
-```{r}
-agency <- full_dataset %>%
-  filter(agency != 88)
-
-agency_fit <- survfit(formula = Surv(case_year, Year, Override) ~ agency,
-                 data = agency)
-
-tidy(agency_fit) %>%
-  ggplot(aes(time, estimate, color = strata)) +
-  geom_line() +
-  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = .2)
-```
-
-```{r}
-amicus_fit <- survfit(formula = Surv(case_year, Year, Override) ~ amicus,
-                 data = full_dataset)
-
-tidy(amicus_fit) %>%
-  filter(strata != "amicus=88") %>%
-  ggplot(aes(time, estimate, color = strata)) +
-  geom_line() +
-  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = .2)
-```
-
-```{r}
-unified_fit <- survfit(formula = Surv(case_year, Year, Override) ~ unified,
-                 data = full_dataset)
-
-tidy(unified_fit) %>%
-  ggplot(aes(time, estimate, color = strata)) +
-  geom_line() +
-  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = .2)
-```
-
-
-```{r}
-prof_fit <- survfit(formula = Surv(case_year, Year, Override) ~ Professionalization,
-                 data = full_dataset)
-
-tidy(prof_fit) %>%
-  ggplot(aes(time, estimate, color = strata)) +
-  geom_line() +
-  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = .2)
-```
 
 
 

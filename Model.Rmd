@@ -195,6 +195,26 @@ summary(controls)
 
 
 
+```{r}
+controls_fit <- survfit(formula = Surv(case_year, Year, Override) ~ appointed +
+                ideologically_similar + appointed_similar + classact + Moralistic + Traditionalistic +
+                Professionalization + unified,
+                data = control_dataset)
+
+tidy(controls_fit) %>%
+  mutate(strata = if_else(strata == "appointed=0, ideologically_similar=0, appointed_similar=0, classact=FALSE, Moralistic=0, Traditionalistic=0, Professionalization=1, unified=1", "elected, similar, not professional",
+                           if_else(strata == "appointed=0, ideologically_similar=0, appointed_similar=0, classact=FALSE, Moralistic=0, Traditionalistic=0, Professionalization=5, unified=1", "elected, similar, most professional", strata))) %>%
+  filter(strata %in% c("elected, similar, not professional", "elected, similar, most professional",
+                       "appointed, similar, not professional", "appointed, similar, most professional")) %>%
+  ggplot(aes(time, estimate, color = strata)) +
+  geom_line() +
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = .2) +
+  facet_wrap(~strata) +
+  theme_light() +
+  labs(y = "Estimated Likelihood of Survival",
+       x = "Year",
+       color = "Selection System and Professionalization")  
+```
 
 
 

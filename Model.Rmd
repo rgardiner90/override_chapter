@@ -219,7 +219,7 @@ tidy(controls_fit) %>%
 
 ## Looking at clustering and frailty models (MLM)
 
-Below are the four models.  Nothing terrible different.  In the final model, nothing is significant.  
+Below are the four models.  Nothing terrible different.  In the final model, nothing is significant.  Bring this up to Steigerwalt.
 ```{r}
 election_cluster <- coxph(formula = Surv(case_year, Year, Override) ~ appointed + cluster(state_2),
                  data = dataset)

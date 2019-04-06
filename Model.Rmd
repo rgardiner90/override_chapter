@@ -62,27 +62,21 @@ Here I am adding the absolute distance variables:
 # dataset$court_upper_dist <- abs(dataset$judicial - dataset$upper)
 ```
 
-### Testing Amelia package
+
+
+## Initial Analysis (not Amelia)
 
 ```{r}
-# test <- dataset
-```
-
-
-## Initial Analysis
-
-```{r}
-election <- coxph(formula = Surv(case_year, Year, Override) ~ appointed,
+# Model
+election_cluster <- coxph(formula = Surv(case_year, Year, Override) ~ appointed + cluster(state_2),
                  data = dataset)
-summary(election)
-```
+summary(election_cluster)
 
-
-```{r}
-fit <- survfit(formula = Surv(case_year, Year, Override) ~ appointed,
+# graph prep
+elections_cluster_fit <- survfit(formula = Surv(case_year, Year, Override) ~ appointed + cluster(state_2),
                  data = dataset)
-# ggsurvplot(fit, data = dataset, risk.table = TRUE)
-tidy(fit) %>%
+# graph
+tidy(elections_cluster_fit) %>%
   ggplot(aes(time, estimate, color = strata)) +
   geom_line() +
   geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = .2) +
@@ -96,33 +90,19 @@ tidy(fit) %>%
 # ggsave("figures/Selection Survival.jpeg")
 ```
 
-
-
-## Larger models
-
-### Introducing ideology
 ```{r}
-ideology <- coxph(formula = Surv(case_year, Year, Override) ~ appointed +
-                ideologically_similar,
+ideology_cluster <- coxph(formula = Surv(case_year, Year, Override) ~ appointed +
+                ideologically_similar + cluster(state_2),
                 data = dataset)
 
-summary(ideology)
-cox.zph(ideology) # testing for proportional hazards
-```
+summary(ideology_cluster)
 
-
-
-```{r}
-ideology_fit <- survfit(formula = Surv(case_year, Year, Override) ~ appointed +
-                ideologically_similar,
+ideology_cluster_fit <- survfit(formula = Surv(case_year, Year, Override) ~ appointed +
+                ideologically_similar + cluster(state_2),
                 data = dataset)
 
 
-plot(survfit(ideology),
-     xlim = c(1995,2012),
-     ylim = c(.99, 1.0))
-
-tidy(ideology_fit) %>%
+tidy(ideology_cluster_fit) %>%
   mutate(strata = if_else(strata == "appointed=0, ideologically_similar=1", "Elected and Similar",
                           if_else(strata == "appointed=0, ideologically_similar=0", "Elected and Dissimilar",
                                   if_else(strata == "appointed=1, ideologically_similar=0", 
@@ -139,25 +119,23 @@ tidy(ideology_fit) %>%
 # ggsave("figures/Selection and Ideology survival.jpeg")
 ```
 
-
-### adding in interaction terms
-
-
 ```{r}
+# creating interaction term
 dataset <- dataset %>%
   mutate(appointed_similar = appointed * ideologically_similar)
 
 
-interactions <- coxph(formula = Surv(case_year, Year, Override) ~ appointed + ideologically_similar +
-                appointed_similar,
+interactions_cluster <- coxph(formula = Surv(case_year, Year, Override) ~ 
+                                appointed + ideologically_similar + appointed_similar +
+                                + cluster(state_2),
                 data = dataset)
-summary(interactions)
+summary(interactions_cluster)
 
-interactions_fit <- survfit(formula = Surv(case_year, Year, Override) ~ appointed + ideologically_similar +
-                appointed_similar,
+interactions_cluster_fit <- survfit(formula = Surv(case_year, Year, Override) ~ appointed +
+                              ideologically_similar + appointed_similar + cluster(state_2),
                 data = dataset)
 
-tidy(interactions_fit) %>%
+tidy(interactions_cluster_fit) %>%
   mutate(strata = if_else(strata == "appointed=0, ideologically_similar=0, appointed_similar=0", 
                           "Elected and Dissimilar",
                           if_else(strata == "appointed=0, ideologically_similar=1, appointed_similar=0",
@@ -177,31 +155,26 @@ tidy(interactions_fit) %>%
        color = "Interaction between Selection System \nand Ideological Similarity")  
 
 # ggsave("figures/Interaction Survival.jpeg")
+
 ```
 
-### Controls
 ```{r}
-
 control_dataset <- dataset %>%
   filter(agency != 88)
 
-controls <- coxph(formula = Surv(case_year, Year, Override) ~ appointed +
+controls_cluster <- coxph(formula = Surv(case_year, Year, Override) ~ appointed +
                 ideologically_similar + appointed_similar + classact + Moralistic + Traditionalistic +
-                Professionalization + unified,
+                Professionalization + unified + cluster(state_2),
                 data = control_dataset)
 
-summary(controls)
-```
+summary(controls_cluster)
 
-
-
-```{r}
-controls_fit <- survfit(formula = Surv(case_year, Year, Override) ~ appointed +
+controls_cluster_fit <- survfit(formula = Surv(case_year, Year, Override) ~ appointed +
                 ideologically_similar + appointed_similar + classact + Moralistic + Traditionalistic +
-                Professionalization + unified,
+                Professionalization + unified + cluster(state_2),
                 data = control_dataset)
 
-tidy(controls_fit) %>%
+tidy(controls_cluster_fit) %>%
   mutate(strata = if_else(strata == "appointed=0, ideologically_similar=0, appointed_similar=0, classact=FALSE, Moralistic=0, Traditionalistic=0, Professionalization=1, unified=1", "elected, similar, not professional",
                            if_else(strata == "appointed=0, ideologically_similar=0, appointed_similar=0, classact=FALSE, Moralistic=0, Traditionalistic=0, Professionalization=5, unified=1", "elected, similar, most professional", strata))) %>%
   filter(strata %in% c("elected, similar, not professional", "elected, similar, most professional",
@@ -214,40 +187,7 @@ tidy(controls_fit) %>%
   labs(y = "Estimated Likelihood of Survival",
        x = "Year",
        color = "Selection System and Professionalization")  
-```
 
-
-## Looking at clustering and frailty models (MLM)
-
-Below are the four models.  Nothing terrible different.  In the final model, nothing is significant.  Bring this up to Steigerwalt.
-```{r}
-election_cluster <- coxph(formula = Surv(case_year, Year, Override) ~ appointed + cluster(state_2),
-                 data = dataset)
-summary(election_cluster)
-```
-
-```{r}
-ideology_cluster <- coxph(formula = Surv(case_year, Year, Override) ~ appointed +
-                ideologically_similar + cluster(state_2),
-                data = dataset)
-
-summary(ideology_cluster)
-```
-
-```{r}
-interactions_cluster <- coxph(formula = Surv(case_year, Year, Override) ~ 
-                                appointed + ideologically_similar + appointed_similar +
-                                + cluster(state_2),
-                data = dataset)
-summary(interactions_cluster)
-```
-
-```{r}
-controls_cluster <- coxph(formula = Surv(case_year, Year, Override) ~ appointed +
-                ideologically_similar + appointed_similar + classact + Moralistic + Traditionalistic +
-                Professionalization + unified + cluster(state_2),
-                data = control_dataset)
-
-summary(controls_cluster) 
+# ggsave("survival controls.jpeg")
 ```
 

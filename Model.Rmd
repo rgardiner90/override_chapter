@@ -142,7 +142,7 @@ tidy(ideology_fit) %>%
 
 ### adding in interaction terms
 
-Interactions don't work, moving on...
+
 ```{r}
 dataset <- dataset %>%
   mutate(appointed_similar = appointed * ideologically_similar)
@@ -217,5 +217,37 @@ tidy(controls_fit) %>%
 ```
 
 
+## Looking at clustering and frailty models (MLM)
 
+Below are the four models.  Nothing terrible different.  In the final model, nothing is significant.  
+```{r}
+election_cluster <- coxph(formula = Surv(case_year, Year, Override) ~ appointed + cluster(state_2),
+                 data = dataset)
+summary(election_cluster)
+```
+
+```{r}
+ideology_cluster <- coxph(formula = Surv(case_year, Year, Override) ~ appointed +
+                ideologically_similar + cluster(state_2),
+                data = dataset)
+
+summary(ideology_cluster)
+```
+
+```{r}
+interactions_cluster <- coxph(formula = Surv(case_year, Year, Override) ~ 
+                                appointed + ideologically_similar + appointed_similar +
+                                + cluster(state_2),
+                data = dataset)
+summary(interactions_cluster)
+```
+
+```{r}
+controls_cluster <- coxph(formula = Surv(case_year, Year, Override) ~ appointed +
+                ideologically_similar + appointed_similar + classact + Moralistic + Traditionalistic +
+                Professionalization + unified + cluster(state_2),
+                data = control_dataset)
+
+summary(controls_cluster) 
+```
 

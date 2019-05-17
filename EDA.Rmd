@@ -15,23 +15,18 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(usmap)
 library(maps)
+
+theme_set(theme_light())
 ```
 
-```{r}
-full_dataset <- read_csv("data/all_years_all_variables.csv")
-head(full_dataset)
-```
-
-First, let's just look at the basic characteristics of the data by looking at number of cases per state and year
 ```{r}
 full_dataset %>%
-  group_by(masterid, state_abb, case_year) %>%
-  summarise(cases = n()) %>%
-  ungroup() %>%
-  ggplot(aes(case_year)) +
-  geom_bar() +
-  ylab("Number of Cases per Year") +
-  xlab("Year of Decision")
+  distinct(masterid, state_abb, case_year) %>%
+  count(case_year) %>%
+  ggplot(aes(x = case_year, y = n)) +
+  geom_col() +
+  labs(x = "Year of Decision", y = "Number of Cases per Year")
+
 
 # ggsave("figures/cases per year.jpeg")
 ```

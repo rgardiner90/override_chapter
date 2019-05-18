@@ -17,6 +17,9 @@ library(usmap)
 library(maps)
 
 theme_set(theme_light())
+
+full_dataset <- read_csv("data/all_years_all_variables.csv")	
+head(full_dataset)
 ```
 
 ```{r}
@@ -128,8 +131,7 @@ overrides %>%
   ggplot() +
   geom_boxplot(aes(x = election, y = mean)) +
   ylab("Total Number of Overrides") +
-  xlab("Selection System") %>%
-  labs(title = "Distribution of State Averages of Overrides by Selection System")
+  xlab("Selection System") 
 
 # ggsave("figures/distribution of overrides by selection system.jpeg")
 ```
@@ -143,14 +145,15 @@ overrides$court_upper <- abs(overrides$judicial - overrides$upper)
 ggplot() +
   geom_bar(data = overrides, aes(x = time_to_override)) +
   xlab("Years between Decision and Override") +
-  ylab("Count")
+  ylab("Number of Overrides")
 
 # ggsave("figures/year between case and override.jpeg")
 
 ggplot() +
   geom_bar(data = overrides, aes(x = time_to_override, fill = election)) +
   xlab("Years between Decision and Override") +
-  ylab("Count")
+  ylab("Number of Overrides") +
+  labs(fill = "Selection System")
 
 # ggsave("figures/year between case state and override.jpeg")
 ```
@@ -221,7 +224,8 @@ table(smaller_variable_eda$amicus)
 ```{r}
 ggplot(data = overrides) +
   geom_bar(aes(culture)) +
-  ylab("Number of Overrides")
+  ylab("Number of Overrides") +
+  labs(x = "")
 
 # ggsave("figures/political culture.jpeg")
 ```
@@ -266,14 +270,17 @@ Professionalization:
 The first plot really isn't telling us much, givne that the bulk of observations are simply with level # 3.  More of a demonimator problem.
 ```{r}
 ggplot(data = overrides) +
-  geom_bar(aes(Professionalization))
+  geom_bar(aes(Professionalization)) +
+  labs(y = "Number of Overrides",
+       x = "Level of Professionalization")
 
 table(full_dataset$Professionalization)
 
 # ggsave("figures/professionalization.jpeg")
 
 ggplot() +
-  geom_density(data = overrides, aes(x = time_to_override, color = as.factor(Professionalization))) +
+  geom_density(data = overrides, aes(x = time_to_override, 
+                                     color = as.factor(Professionalization))) +
   xlab("Years between Decision and Override") +
   ylab("Density") +
   labs(color = "Level of Professionalization")
@@ -400,7 +407,8 @@ overrides %>%
   xlab("Years between Decision and Override") +
   ylab("Density") +
   labs(color = "Ideologically Similar") +
-  theme_light()
+  scale_color_discrete(labels = c("No", "Yes"))
+  theme_light() 
 
 # ggsave("figures/ideology and tiem to override.jpeg")
 ```
@@ -413,7 +421,9 @@ overrides %>%
   ggplot(aes(x = as.factor(ideologically_similar), fill = election)) +
   geom_bar() +
   labs(x = "Ideologically Similar",
-       fill = "Selection System") +
+       fill = "Selection System",
+       y = "Number of Overrides") +
+  scale_x_discrete(labels = c("No", "Yes")) +
   theme_light()
 
 # ggsave("figures/Overrides by Ideological similarity.jpeg")

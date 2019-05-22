@@ -160,17 +160,18 @@ tidy(interactions_cluster_fit) %>%
 
 ```{r}
 control_dataset <- dataset %>%
-  filter(agency != 88)
+  filter(agency != 88) %>%
+  mutate(Individualistic = ifelse(Traditionalistic == 0 & Moralistic == 0, 1, 0))
 
 controls_cluster <- coxph(formula = Surv(case_year, Year, Override) ~ appointed +
-                ideologically_similar + appointed_similar + classact + Moralistic + Traditionalistic +
+                ideologically_similar + appointed_similar + classact + Individualistic + Traditionalistic +
                 Professionalization + unified + cluster(state_2),
                 data = control_dataset)
 
 summary(controls_cluster)
 
 controls_cluster_fit <- survfit(formula = Surv(case_year, Year, Override) ~ appointed +
-                ideologically_similar + appointed_similar + classact + Moralistic + Traditionalistic +
+                ideologically_similar + appointed_similar + classact + Individualistic + Traditionalistic +
                 Professionalization + unified + cluster(state_2),
                 data = control_dataset)
 

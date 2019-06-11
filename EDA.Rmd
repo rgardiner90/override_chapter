@@ -222,7 +222,9 @@ table(smaller_variable_eda$amicus)
 
 
 ```{r}
-ggplot(data = overrides) +
+overrides %>%
+  mutate(culture = str_to_title(culture)) %>%
+  ggplot() +
   geom_bar(aes(culture)) +
   ylab("Number of Overrides") +
   labs(x = "")
@@ -231,9 +233,11 @@ ggplot(data = overrides) +
 ```
 
 ```{r}
-ggplot(data = overrides) +
+overrides %>%
+  mutate(culture = str_to_title(culture)) %>%
+  ggplot() +
   geom_density(aes(x= time_to_override, color = as.factor(culture))) +
-  labs(color = "Political Culture") +
+  labs(color = "Political Culture", y = "Density") +
   xlab("Time to Override")
 
 # ggsave("figures/Density plot by Culture.jpeg")

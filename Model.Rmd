@@ -191,5 +191,6 @@ tidy(controls_cluster_fit) %>%
 
 # ggsave("survival controls.jpeg")
 
+cox.zph(controls_cluster)
 ```
 

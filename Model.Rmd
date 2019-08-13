@@ -88,6 +88,8 @@ tidy(elections_cluster_fit) %>%
        x = "Year")
 
 # ggsave("figures/Selection Survival.jpeg")
+
+cox.zph(election_cluster)
 ```
 
 ```{r}
@@ -117,6 +119,8 @@ tidy(ideology_cluster_fit) %>%
        color = "Selection System and \nIdeological Similarity")
 
 # ggsave("figures/Selection and Ideology survival.jpeg")
+
+cox.zph(ideology_cluster)
 ```
 
 ```{r}
@@ -156,6 +160,7 @@ tidy(interactions_cluster_fit) %>%
 
 # ggsave("figures/Interaction Survival.jpeg")
 
+cox.zph(interactions_cluster)
 ```
 
 ```{r}
@@ -190,5 +195,7 @@ tidy(controls_cluster_fit) %>%
        color = "Selection System and Professionalization")  
 
 # ggsave("survival controls.jpeg")
+
+cox.zph(controls_cluster)
 ```
 

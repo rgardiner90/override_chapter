@@ -53,6 +53,7 @@ all_states2 <- all_states %>%
 ggplot() +
   geom_polygon(data = all_states2, aes(x = long, y = lat, group = group, fill = all_states2$n)) +
   scale_fill_gradient(low = "white", high = "red") +
+  coord_map(projection = "albers", lat0 = 39, lat1 = 45) +
   labs(fill = "Number of Cases") +
   theme_void()
 
@@ -188,6 +189,7 @@ override_state_map <- all_states %>%
 ggplot() +
   geom_polygon(data = override_state_map, aes(x = long, y = lat, group = group, fill = n)) +
   scale_fill_gradient(low = "white", high = "red") +
+  coord_map(projection = "albers", lat0 = 39, lat1 = 45) +
   labs(fill = "Number of Overrides") +
   theme_void()
 

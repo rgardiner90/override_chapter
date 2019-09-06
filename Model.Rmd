@@ -23,6 +23,9 @@ library(devtools)
 library(ggfortify)
 library(survivalAnalysis)
 library(Amelia)
+library(frailtypack)
+
+theme_set(theme_light())
 ```
 
 ```{r}
@@ -181,8 +184,8 @@ controls_cluster_fit <- survfit(formula = Surv(case_year, Year, Override) ~ appo
                 data = control_dataset)
 
 tidy(controls_cluster_fit) %>%
-  mutate(strata = if_else(strata == "appointed=0, ideologically_similar=0, appointed_similar=0, classact=FALSE, Moralistic=0, Traditionalistic=0, Professionalization=1, unified=1", "elected, similar, not professional",
-                           if_else(strata == "appointed=0, ideologically_similar=0, appointed_similar=0, classact=FALSE, Moralistic=0, Traditionalistic=0, Professionalization=5, unified=1", "elected, similar, most professional", strata))) %>%
+  mutate(strata = if_else(strata == "appointed=0, ideologically_similar=0, appointed_similar=0, classact=FALSE, Individualistic=0, Traditionalistic=0, Professionalization=1, unified=1", "elected, similar, not professional",
+                           if_else(strata == "appointed=0, ideologically_similar=0, appointed_similar=0, classact=FALSE, Individualistic=0, Traditionalistic=0, Professionalization=5, unified=1", "elected, similar, most professional", strata))) %>%
   filter(strata %in% c("elected, similar, not professional", "elected, similar, most professional",
                        "appointed, similar, not professional", "appointed, similar, most professional")) %>%
   ggplot(aes(time, estimate, color = strata)) +
@@ -197,5 +200,338 @@ tidy(controls_cluster_fit) %>%
 # ggsave("survival controls.jpeg")
 
 cox.zph(controls_cluster)
+
+print(tidy(controls_cluster_fit$strata))
 ```
 
+
+
+
+
+
+
+
+## Using videos in attempt to better understand survival models
+
+Creating survival object
+```{r}
+mySurv <- Surv(time = dataset$case_year, time2 = dataset$Year, event = dataset$Override)
+head(mySurv) # plus sign means that it is centered
+```
+
+
+Baseline with no predictor
+```{r}
+fit <- survfit(mySurv ~ 1)
+
+fit
+
+plot(fit, ylim = c(0.9, 1), xlim = c(1995, 2013)) # kaplan meier curve
+?plot
+```
+
+These Kaplan Meier tests/curves are nice, but have limitations.  It can only incorporate categorical variables.  It becomes difficult when you have many x variables (controlling becomes too hard), and there is no good way to summarize relationships (no betas) given that it is non-parametric
+```{r}
+states <- survfit(mySurv ~ dataset$State)
+
+states
+
+# kaplan meier curve
+plot(fit, col = "red", lwd = 8, ylim = c(0.992, 1), xlim = c(1995, 2013), conf.int = FALSE) # baseline
+lines(states) # state model
+
+
+# trying to run a log rank test (like a chi-square test), but it is giving me an error
+# survdiff(mySurv ~ dataset$state_abb) 
+```
+
+Elections
+```{r}
+elections <- survfit(mySurv ~ dataset$appointed)
+
+plot(elections, ylim = c(0.998, 1), xlim = c(1995, 2013), col = c("blue", "red"))
+```
+
+
+
+
+
+### Cox proportional hazard ratio analysis
+
+- Survival analysis allowing inclusing of multiple predictors
+- Proportional Hazard assumption
+    - assumes a constant hazard ratio over time
+    - Groups compared diverge in the KM plot at the same rate (parallel)
+- Coefficients represent the increase in the log Hazard Rate for one unit increase in predictor with all other covariates constant
+- e^beta represents the Hazard rate for one unit increase in predictor with all others constant
+- beta < 0 means that increasing x is associated with lower risk (hazard) and longer survival times
+- to test hypothesis of beta = 0, we can use a Wald or LR test
+
+```{r}
+cox_states <- coxph(mySurv ~ dataset$State)
+
+summary(cox_states)
+
+tidy(cox_states) %>%
+  mutate(term = str_remove_all(term, "dataset\\$State"),
+         estimate2 = exp(estimate),
+         significance = ifelse(estimate > 0 & p.value < 0.05, "positive",
+                               ifelse(estimate > 0 & p.value < 0.05, "negative",
+                                      "not significant")),
+         term = fct_reorder(term, estimate)) %>%
+  # filter(p.value < 0.05) %>%
+  filter(term != "New Mexico") %>%
+  ggplot(aes(x = term, y = estimate, color = significance)) +
+  geom_point() +
+  geom_pointrange(aes(ymin = conf.low, ymax = conf.high)) +
+  scale_color_manual(values = c("gray60", "green2")) +
+  coord_flip() +
+  theme_minimal()
+
+tidy(cox_states) %>%
+  mutate(term = str_remove_all(term, "dataset\\$State"),
+         estimate2 = exp(estimate),
+         significance = ifelse(estimate > 0 & p.value < 0.05, "positive",
+                               ifelse(estimate > 0 & p.value < 0.05, "negative",
+                                      "not significant")),
+         term = fct_reorder(term, conf.low)) %>%
+  filter(p.value < 0.05) %>%
+  filter(term != "New Mexico") %>%
+  ggplot(aes(x = term, y = estimate)) +
+  geom_point() +
+  geom_pointrange(aes(ymin = conf.low, ymax = conf.high)) +
+  scale_color_manual(values = c("green2")) +
+  coord_flip() +
+  theme_minimal()
+```
+
+
+Hazard is the probability that you die now, given that you are alive (probability of being overriden, given that you haven't been overridden right now).
+
+A hazard ratio is just like an odds-ratio.  The cox proportional can't predict the hazard for a given person with a given set of values at a given moment.  We can only COMPARE people, because we don't know the value of the baseline hazard
+
+
+WHAT IF I SHOULD BE SUBTRACTING THE YEAR? ehh.. Really doesn't matter
+```{r}
+mySurv2 <- Surv(time = (dataset$case_year - 1994), time2 = (dataset$Year - 1994), event = dataset$Override)
+
+fitTest <- survfit(mySurv2 ~ 1)
+
+fitTest
+
+plot(fitTest) # kaplan meier curve
+```
+
+
+
+
+
+
+
+
+
+
+
+## Frailty using the survival package (MAIN RESULTS NOW)
+
+```{r}
+frailty1 <- coxph(Surv(time = (dataset$case_year - 1994), time2 = (dataset$Year - 1994), event = dataset$Override) ~ dataset$appointed + frailty(dataset$state_abb))
+
+
+surv_frailty1 <- survfit(Surv(time = (dataset$case_year - 1994), 
+                              time2 = (dataset$Year - 1994), 
+                              event = dataset$Override) ~ 
+                           dataset$appointed + frailty(dataset$state_abb))
+
+
+
+surv_frailty1 %>%
+  tidy() %>%
+  ggplot(aes(time, estimate, color = strata)) +
+  geom_line(show.legend = FALSE) +
+  labs(x = "Time", y = "Estimate")
+```
+
+```{r}
+frailty2 <- coxph(Surv(time = (dataset$case_year - 1994), 
+                              time2 = (dataset$Year - 1994), 
+                              event = dataset$Override) ~ 
+                           dataset$appointed + dataset$ideologically_similar +
+                           frailty(dataset$state_abb))
+
+summary(frailty2, type = "text")
+
+surv_frailty2 <- survfit(Surv(time = (dataset$case_year - 1994), 
+                              time2 = (dataset$Year - 1994), 
+                              event = dataset$Override) ~ 
+                           dataset$appointed + dataset$ideologically_similar +
+                           frailty(dataset$state_abb))
+
+frailty2_data <- surv_frailty2 %>%
+  tidy() %>% 
+  mutate(appointed = ifelse(str_detect(strata, "appointed=0") == TRUE,
+                            "Elected", "Appointed")) %>%
+  group_by(time, appointed) %>%
+  summarise(estimate = mean(estimate),
+            conf.high = mean(conf.high),
+            conf.low = mean(conf.low))
+
+frailty2_data %>%
+  ggplot(aes(time, estimate, color = appointed)) +
+  geom_line() +
+  labs(color = "Appointed", x = "Time", y = "Estimate")
+
+surv_frailty2 %>%
+  tidy() %>% 
+  mutate(appointed = ifelse(str_detect(strata, "appointed=0") == TRUE,
+                            "Elected", "Appointed")) %>%
+  ggplot(aes(time, estimate, color = appointed)) +
+  geom_line(aes(group = strata)) +
+  geom_line(data = frailty2_data, lwd = 1, color = "gray60") +
+  labs(x = "Time", y = "Estimate", color = "Selection System",
+       caption = "Gray line is the group average") +
+  facet_wrap(~appointed) 
+```
+
+
+```{r}
+frailty3 <- coxph(Surv(time = (dataset$case_year - 1994), 
+                              time2 = (dataset$Year - 1994), 
+                              event = dataset$Override) ~ 
+                           dataset$appointed + dataset$ideologically_similar +
+                           dataset$appointed_similar +
+                           frailty(dataset$state_abb))
+
+summary(frailty3)
+
+surv_frailty3 <- survfit(Surv(time = (dataset$case_year - 1994), 
+                              time2 = (dataset$Year - 1994), 
+                              event = dataset$Override) ~ 
+                           dataset$appointed + dataset$ideologically_similar +
+                           dataset$appointed_similar +
+                           frailty(dataset$state_abb))
+
+surv3_data <- surv_frailty3 %>%
+  tidy() %>% 
+  mutate(appointed = ifelse(str_detect(strata, "appointed=0") == TRUE,
+                            "Elected", "Appointed"),
+         ideological_dissimilar = ifelse(str_detect(strata, "ideologically_similar=0") == TRUE,
+                                         "Dissimilar", "Similar")) %>%
+  group_by(time, appointed, ideological_dissimilar) %>%
+  summarise(estimate = mean(estimate),
+            conf.high = mean(conf.high),
+            conf.low = mean(conf.low)) %>%
+  mutate(final = paste(appointed, ideological_dissimilar))
+  
+
+surv3_data %>%
+  ggplot(aes(time, estimate, color = appointed)) +
+  geom_line() +
+  labs(color = "Appointed", x = "Time", y = "Estimate") +
+  facet_wrap(~ideological_dissimilar)
+
+
+
+surv_frailty3 %>%
+  tidy() %>% 
+  mutate(appointed = ifelse(str_detect(strata, "appointed=0") == TRUE,
+                            "Elected", "Appointed"),
+         ideological_dissimilar = ifelse(str_detect(strata, "ideologically_similar=0") == TRUE,
+                                         "Dissimilar", "Similar"),
+         final = paste(appointed, ideological_dissimilar)) %>%
+  ggplot(aes(time, estimate, color = final)) +
+  geom_line(aes(group = strata)) +
+  geom_line(data = surv3_data, lwd = 1, color = "gray60") +
+  labs(x = "Time", y = "Estimate", color = "Selection System",
+       caption = "Gray line is the group average") +
+  facet_wrap(~final) 
+```
+
+
+
+```{r}
+control_dataset <- dataset %>%
+  filter(agency != 88) %>%
+  mutate(Individualistic = ifelse(Traditionalistic == 0 & Moralistic == 0, 1, 0))
+
+controls_cluster_frail <- coxph(formula = Surv(case_year, Year, Override) ~ appointed +
+                ideologically_similar + appointed_similar + classact + Individualistic + Traditionalistic +
+                Professionalization + unified + frailty(state_2),
+                data = control_dataset)
+
+summary(controls_cluster_frail)
+
+controls_cluster_fit_frail <- survfit(formula = Surv(case_year, Year, Override) ~ appointed +
+                ideologically_similar + appointed_similar + classact + Individualistic + Traditionalistic +
+                Professionalization + unified + frailty(state_2),
+                data = control_dataset)
+```
+
+
+
+
+### Frailty Models suing frailtypack
+
+This is based off of Schorpp's comments.
+
+```{r}
+# mySurv <- Surv(time = dataset$case_year, time2 = dataset$Year, event = dataset$Override)
+# 
+# dataset2 <- dataset %>%
+#   mutate(time = Year - case_year) %>%
+#   dplyr::select(state_2, appointed, time, Override) %>%
+#   na.omit()
+# 
+# frail1 <- frailtyPenal(Surv(time, Override) ~ cluster(state_2) + appointed, 
+#                        data = dataset2, n.knots = 4, kappa = 50)
+# 
+# print(frail1)
+# summary(frail1)
+# plot(frail1)
+```
+
+
+```{r}
+# dataset3 <- dataset %>%
+#   mutate(time = Year - case_year) %>%
+#   dplyr::select(state_2, appointed, time, Override, ideologically_similar) %>%
+#   na.omit()
+# 
+# frail2 <- frailtyPenal(Surv(time, Override) ~ cluster(state_2) + appointed + ideologically_similar, 
+#                        data = dataset3, n.knots = 4, kappa = 50)
+```
+
+
+
+```{r}
+# dataset4 <- dataset %>%
+#   mutate(time = Year - case_year) %>%
+#   dplyr::select(state_2, appointed, time, Override, ideologically_similar, appointed_similar) %>%
+#   na.omit()
+# 
+# frail3 <- frailtyPenal(Surv(time, Override) ~ cluster(state_2) + appointed + ideologically_similar +
+#                          appointed_similar, 
+#                        data = dataset4, n.knots = 4, kappa = 50)
+```
+
+```{r}
+# summary(frail1)
+# summary(frail2)
+# summary(frail3)
+```
+
+```{r}
+# print(frail1)
+# print(frail2)
+# print(frail3)
+```
+
+```{r}
+# plot(frail1)
+# plot(frail2)
+# plot(frail3)
+# 
+# 
+# plot.frail(frail2)
+# frail1
+```

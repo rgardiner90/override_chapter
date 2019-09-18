@@ -41,6 +41,13 @@ dataset <- dataset %>%
 dataset %>%
   group_by(masterid) %>%
   count(masterid)
+
+dataset <- dataset %>%
+  mutate(appointed_similar = appointed * ideologically_similar)
+
+control_dataset <- dataset %>%
+  filter(agency != 88) %>%
+  mutate(Individualistic = ifelse(Traditionalistic == 0 & Moralistic == 0, 1, 0))
 ```
 
 ## Amelia 
@@ -128,8 +135,7 @@ cox.zph(ideology_cluster)
 
 ```{r}
 # creating interaction term
-dataset <- dataset %>%
-  mutate(appointed_similar = appointed * ideologically_similar)
+
 
 
 interactions_cluster <- coxph(formula = Surv(case_year, Year, Override) ~ 
@@ -167,10 +173,6 @@ cox.zph(interactions_cluster)
 ```
 
 ```{r}
-control_dataset <- dataset %>%
-  filter(agency != 88) %>%
-  mutate(Individualistic = ifelse(Traditionalistic == 0 & Moralistic == 0, 1, 0))
-
 controls_cluster <- coxph(formula = Surv(case_year, Year, Override) ~ appointed +
                 ideologically_similar + appointed_similar + classact + Individualistic + Traditionalistic +
                 Professionalization + unified + cluster(state_2),
@@ -197,7 +199,7 @@ tidy(controls_cluster_fit) %>%
        x = "Year",
        color = "Selection System and Professionalization")  
 
-# ggsave("survival controls.jpeg")
+# ggsave("figures/survival controls.jpeg")
 
 cox.zph(controls_cluster)
 
@@ -334,9 +336,34 @@ plot(fitTest) # kaplan meier curve
 
 ## Frailty using the survival package (MAIN RESULTS NOW)
 
-```{r}
-frailty1 <- coxph(Surv(time = (dataset$case_year - 1994), time2 = (dataset$Year - 1994), event = dataset$Override) ~ dataset$appointed + frailty(dataset$state_abb))
+Notes from https://openaccess.leidenuniv.nl/bitstream/handle/1887/11456/01.pdf?sequence=6: 
 
+Vaupel et al. (1979) introduced the term frailty and used it in univariate survival models. Clayton (1978) promoted the model by its application to multivariate situation on chronic disease incidence in families. A random effect model takes into account the effects of unobserved or unobservable heterogeneity, caused by different sources. The random effect, called frailty and denoted here by Z is the term that describes the common risk or the individual heterogeneity, acting as a factor on the hazard function. Two categories of frailty models can be pointed out. The first one is the class of univariate frailty models that consider univariate survival times. The second one is the class of multivariate frailty models that take into account multivariate survival times.
+
+*Univariate frailty models*
+
+Univariate frailty models take into account that the population is not homogeneous. Heterogeneity may be explained by covariates, but when important covariates have not been observed, this leads to unobserved heterogeneity. Vaupel et al. (1979) introduced univariate frailty models (with a gamma distribution) into survival analysis to account for unobserved heterogeneity or missing covariates in the study population. The idea is to suppose that different patients possess different frailties and patients more ”frail” or ”prone” tend to have the event earlier that those who are less frail. 
+
+*1.2.3 Multivariate frailty models*
+
+A very common situation in survival analysis is clustered or repeated data. Clustered data are for instance data where individuals are divided in groups likes family or study centres. Repeated data are seen in case of longitudinal data, concerning multiple recurrences of an event for the same individual. The difficulty of working with this kind of data is due to the dependence of individuals within groups, or repeated measures within individuals. The dependence usually arises because individuals in the same group are related to each other or because of the recurrence of an event for the same individual. Multivariate frailty models have been used frequently for modelling dependence in multivariate time-to-event data (Clayton, 1978; Hougaard, 2000; Oakes, 1982a; Yashin et al., 1995). The aim of the frailty is to take into account the presence of the correlation between the multivariate survival times.
+
+Notes from https://www.ncbi.nlm.nih.gov/pubmed/9385105 (houggard):
+
+A frailty model is a random effects model for time variables, where the random effect (the frailty) has a multiplicative effect on the hazard. It can be used for univariate (independent) failure times, i.e. to describe the influence of unobserved covariates in a proportional hazards model. More interesting, however, is to consider multivariate (dependent) failure times generated as conditionally independent times given the frailty. 
+
+
+Other notes: by not considering the fact that there may be clusters in the data (states), we are not accounting for the heterogeneity inherent in the data. This should increase our ability to find a true relationship.
+
+Frailty models are appropriate for analyses that have clusetered survival data (http://www.vetstat.ugent.be/workshop/Janssen2005/frailty.pdf)
+
+
+```{r}
+frailty1 <- coxph(Surv(time = (dataset$case_year - 1994), time2 = (dataset$Year - 1994), 
+                       event = dataset$Override) ~ frailty(dataset$state_abb))
+
+
+summary(frailty1)
 
 surv_frailty1 <- survfit(Surv(time = (dataset$case_year - 1994), 
                               time2 = (dataset$Year - 1994), 
@@ -350,21 +377,23 @@ surv_frailty1 %>%
   ggplot(aes(time, estimate, color = strata)) +
   geom_line(show.legend = FALSE) +
   labs(x = "Time", y = "Estimate")
+
+ggsave("figures/frailty_basic.png")
 ```
 
 ```{r}
 frailty2 <- coxph(Surv(time = (dataset$case_year - 1994), 
                               time2 = (dataset$Year - 1994), 
                               event = dataset$Override) ~ 
-                           dataset$appointed + dataset$ideologically_similar +
+                           dataset$appointed +
                            frailty(dataset$state_abb))
 
-summary(frailty2, type = "text")
+summary(frailty2)
 
 surv_frailty2 <- survfit(Surv(time = (dataset$case_year - 1994), 
                               time2 = (dataset$Year - 1994), 
                               event = dataset$Override) ~ 
-                           dataset$appointed + dataset$ideologically_similar +
+                           dataset$appointed +
                            frailty(dataset$state_abb))
 
 frailty2_data <- surv_frailty2 %>%
@@ -387,11 +416,14 @@ surv_frailty2 %>%
                             "Elected", "Appointed")) %>%
   ggplot(aes(time, estimate, color = appointed)) +
   geom_line(aes(group = strata)) +
-  geom_line(data = frailty2_data, lwd = 1, color = "gray60") +
-  labs(x = "Time", y = "Estimate", color = "Selection System",
+  geom_smooth(data = frailty2_data, lwd = 1, color = "gray60", se = FALSE) +
+  labs(x = "Time", y = "Estimate", color = "Retention System",
        caption = "Gray line is the group average") +
   facet_wrap(~appointed) 
+
+ggsave("figures/frailty_retention.png")
 ```
+
 
 
 ```{r}
@@ -399,7 +431,6 @@ frailty3 <- coxph(Surv(time = (dataset$case_year - 1994),
                               time2 = (dataset$Year - 1994), 
                               event = dataset$Override) ~ 
                            dataset$appointed + dataset$ideologically_similar +
-                           dataset$appointed_similar +
                            frailty(dataset$state_abb))
 
 summary(frailty3)
@@ -408,10 +439,64 @@ surv_frailty3 <- survfit(Surv(time = (dataset$case_year - 1994),
                               time2 = (dataset$Year - 1994), 
                               event = dataset$Override) ~ 
                            dataset$appointed + dataset$ideologically_similar +
+                           frailty(dataset$state_abb))
+
+frailty3_data <- surv_frailty3 %>%
+  tidy() %>% 
+  mutate(appointed = ifelse(str_detect(strata, "appointed=0") == TRUE,
+                            "Elected", "Appointed")) %>%
+  group_by(time, appointed) %>%
+  summarise(estimate = mean(estimate),
+            conf.high = mean(conf.high),
+            conf.low = mean(conf.low))
+
+frailty3_data %>%
+  ggplot(aes(time, estimate, color = appointed)) +
+  geom_line() +
+  labs(color = "Appointed", x = "Time", y = "Estimate")
+
+surv_frailty3 %>%
+  tidy() %>%
+  dplyr::select(strata) %>%
+  mutate(strata = str_remove_all(strata, "frailty.*")) %>%
+  count(strata)
+
+surv_frailty3 %>%
+  tidy() %>% 
+  mutate(appointed = ifelse(str_detect(strata, "appointed=0") == TRUE,
+                            "Elected", "Appointed"),
+         ideology = ifelse(str_detect(strata, "ideologically_similar=1"),
+                                      "similar", "dissimilar"),
+         final = paste(appointed, ideology)) %>%
+  ggplot(aes(time, estimate, color = final)) +
+  geom_line(aes(group = strata)) +
+  geom_smooth(data = frailty3_data, lwd = 1, color = "gray60", se = FALSE) +
+  labs(x = "Time", y = "Estimate", color = "Retention System",
+       caption = "Gray line is the group average") +
+  facet_wrap(~final) 
+
+ggsave("figures/frailty_ideology.png")
+```
+
+
+```{r}
+frailty4 <- coxph(Surv(time = (dataset$case_year - 1994), 
+                              time2 = (dataset$Year - 1994), 
+                              event = dataset$Override) ~ 
+                           dataset$appointed + dataset$ideologically_similar +
                            dataset$appointed_similar +
                            frailty(dataset$state_abb))
 
-surv3_data <- surv_frailty3 %>%
+summary(frailty4)
+
+surv_frailty4 <- survfit(Surv(time = (dataset$case_year - 1994), 
+                              time2 = (dataset$Year - 1994), 
+                              event = dataset$Override) ~ 
+                           dataset$appointed + dataset$ideologically_similar +
+                           dataset$appointed_similar +
+                           frailty(dataset$state_abb))
+
+surv4_data <- surv_frailty4 %>%
   tidy() %>% 
   mutate(appointed = ifelse(str_detect(strata, "appointed=0") == TRUE,
                             "Elected", "Appointed"),
@@ -424,7 +509,7 @@ surv3_data <- surv_frailty3 %>%
   mutate(final = paste(appointed, ideological_dissimilar))
   
 
-surv3_data %>%
+surv4_data %>%
   ggplot(aes(time, estimate, color = appointed)) +
   geom_line() +
   labs(color = "Appointed", x = "Time", y = "Estimate") +
@@ -432,7 +517,7 @@ surv3_data %>%
 
 
 
-surv_frailty3 %>%
+surv_frailty4 %>%
   tidy() %>% 
   mutate(appointed = ifelse(str_detect(strata, "appointed=0") == TRUE,
                             "Elected", "Appointed"),
@@ -441,19 +526,19 @@ surv_frailty3 %>%
          final = paste(appointed, ideological_dissimilar)) %>%
   ggplot(aes(time, estimate, color = final)) +
   geom_line(aes(group = strata)) +
-  geom_line(data = surv3_data, lwd = 1, color = "gray60") +
-  labs(x = "Time", y = "Estimate", color = "Selection System",
+  geom_smooth(data = surv4_data, lwd = 1, color = "gray60", se = FALSE) +
+  labs(x = "Time", y = "Estimate", color = "Retention System",
        caption = "Gray line is the group average") +
   facet_wrap(~final) 
+
+ggsave("figures/frailty-interaction.png")
 ```
 
 
 
-```{r}
-control_dataset <- dataset %>%
-  filter(agency != 88) %>%
-  mutate(Individualistic = ifelse(Traditionalistic == 0 & Moralistic == 0, 1, 0))
 
+
+```{r}
 controls_cluster_frail <- coxph(formula = Surv(case_year, Year, Override) ~ appointed +
                 ideologically_similar + appointed_similar + classact + Individualistic + Traditionalistic +
                 Professionalization + unified + frailty(state_2),

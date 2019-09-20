@@ -421,18 +421,36 @@ overrides %>%
 
 ```{r}
 table(full_dataset$ideologically_similar)
+```
+
+```{r}
+overrides %>%
+  filter(!is.na(ideologically_similar)) %>%
+  group_by(election, ideologically_similar) %>%
+  select(ideologically_similar, election) %>%
+  count() %>%
+  ggplot(aes(as.factor(ideologically_similar), y = n, fill = election)) +
+  geom_col() +
+  labs(x = "Ideologically Similar", y = "Number of Overrides") +
+  scale_x_discrete(labels = c("No", "Yes"))
+  
+# ggsave("figures/Overrides by Ideological similarity.jpeg")
 
 overrides %>%
   filter(!is.na(ideologically_similar)) %>%
-  ggplot(aes(x = as.factor(ideologically_similar), fill = election)) +
-  geom_bar() +
-  labs(x = "Ideologically Similar",
-       fill = "Selection System",
-       y = "Number of Overrides") +
-  scale_x_discrete(labels = c("No", "Yes")) +
-  theme_light()
+  group_by(election, ideologically_similar) %>%
+  select(ideologically_similar, election) %>%
+  count() %>%
+  mutate(total = ifelse(ideologically_similar == 1, 307152, 179230),
+         proportion = (n / total) * 100) %>%
+  ggplot(aes(as.factor(ideologically_similar), y = proportion, fill = election)) +
+  geom_col() +
+  labs(x = "Ideologicially Similar", 
+       y = "Overrides Divided by \nNumber of Case-Year Observations",
+       fill = "Retention System") +
+  scale_x_discrete(labels = c("No","Yes")) 
 
-# ggsave("figures/Overrides by Ideological similarity.jpeg")
+# ggsave("figures/Overrides by Ideological similarity as percentage.jpeg")
 ```
 
 
